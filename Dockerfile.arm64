@@ -1,0 +1,10 @@
+FROM adoptopenjdk/openjdk11:aarch64-debianslim-jre-11.0.11_9
+#FROM arm64v8/openjdk:11-jdk-oracle
+VOLUME /app
+ADD target/app.jar /app/app.jar
+WORKDIR /app
+
+#…Ë÷√ ±«¯
+ENV TZ=Asia/Shanghai
+
+CMD "java" "-jar" "app.jar"
