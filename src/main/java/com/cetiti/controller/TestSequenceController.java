@@ -13,11 +13,15 @@ import com.cetiti.service.TestSequenceService;
 import com.cetiti.service.impl.CacheService;
 import io.swagger.annotations.Api;
 import io.swagger.annotations.ApiOperation;
+import org.springframework.http.ResponseEntity;
+import org.springframework.validation.BindingResult;
 import org.springframework.web.bind.annotation.*;
 
 import javax.annotation.Resource;
 import javax.validation.Valid;
+import java.util.Collection;
 import java.util.List;
+import java.util.stream.Collectors;
 
 @Api("测试序列管理")
 @RestController
@@ -32,8 +36,16 @@ public class TestSequenceController {
 
     @ApiOperation(value = "保存序列")
     @PostMapping("/save")
-    public BaseJson<String> saveTestSequence(@RequestBody @Valid TestSequenceSaveRequest request) {
-        return new BaseJson<String>().Success(testSequenceService.saveTestSequence(request));
+    public BaseJson saveTestSequence(@RequestBody @Valid TestSequenceSaveRequest request, BindingResult result) {
+        if (result.hasErrors()) {
+            List<ValidationError> validationErrors = result.getFieldErrors().stream().map(fieldError -> new ValidationError(
+                    fieldError.getField(),
+                    fieldError.getDefaultMessage())
+            ).collect(Collectors.toList());
+            // 返回错误信息列表
+            return new BaseJson().Fail("参数错误", ResponseEntity.badRequest().body(validationErrors));
+        }
+        return new BaseJson().Success(testSequenceService.saveTestSequence(request));
     }
 
     @ApiOperation(value = "修改序列名称")

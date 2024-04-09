@@ -3,17 +3,16 @@ package com.cetiti.utils;
 import com.alibaba.fastjson.JSON;
 import com.cetiti.config.ApplicationContextHolder;
 import com.cetiti.config.MongoConfig;
-import com.cetiti.constant.FlowControlType;
-import com.cetiti.constant.SpinType;
-import com.cetiti.constant.StepStatus;
-import com.cetiti.constant.TestStepType;
+import com.cetiti.constant.*;
 import com.cetiti.entity.StepAdditional;
 import com.cetiti.entity.StepVariable;
 import com.cetiti.entity.step.ActionStep;
 import com.cetiti.entity.step.StepBase;
+import com.cetiti.entity.step.TestStep;
 import com.cetiti.expression.ExpressionParserUtils;
 import com.cetiti.service.impl.CacheService;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.commons.lang3.StringUtils;
 import org.apache.poi.xwpf.usermodel.XWPFTable;
 import org.jetbrains.annotations.NotNull;
 import org.springframework.data.mongodb.core.MongoTemplate;
@@ -192,16 +191,12 @@ public class CreateWord {
         } else if (Objects.equals(type, "end select")) {
             TableUtil.createRowAndMergeFill(table, 500, 0, 7, Arrays.asList("End (Select)"));
         } else if (Objects.equals(type, "while")) {
-
             TableUtil.createRowAndMergeFill(table, 1500, 0, 7, Arrays.asList("While", "设置的条件语句", "2023-9-20 16:24:30.123"));
         } else if (Objects.equals(type, "end while")) {
-
             TableUtil.createRowAndMergeFill(table, 500, 0, 7, Arrays.asList("End (While)"));
         } else if (Objects.equals(type, "do while")) {
-
             TableUtil.createRowAndMergeFill(table, 1500, 0, 7, Arrays.asList("Do While", "设置的条件语句", "2023-9-20 16:24:30.123"));
         } else if (Objects.equals(type, "end do while")) {
-
             TableUtil.createRowAndMergeFill(table, 500, 0, 7, Arrays.asList("End (Do While)"));
         }
 
@@ -256,7 +251,6 @@ public class CreateWord {
                 StepBase stepBase = mongoTemplate.findById(stepId, StepBase.class);
                 //步骤变量
                 StepVariable stepVariable2 = scopeVariable.getValueByPath(nameString);
-                log.info("stepVariable2:{}", JSON.toJSONString(stepVariable2));
                 //步骤类型
                 String type = stepVariable2.getValueByPath("type");
                 log.info("type:{}", type);
@@ -270,6 +264,9 @@ public class CreateWord {
                 //步骤状态
                 String status = stepVariable2.getValueByPath("Result.Status");
                 log.info("status:{}", status);
+                if (StringUtils.isEmpty(status)) {
+                    continue;
+                }
                 log.info("=============================================================================");
                 //是否循环
                 String loop = stepVariable2.getValueByPath("LoopType");
@@ -298,8 +295,9 @@ public class CreateWord {
                                 String units = stepVariable2.getValueByPath("Result.Units");
                                 String low = stepVariable2.getValueByPath("Limits.LowExpr");
                                 String high = stepVariable2.getValueByPath("Limits.HighExpr");
+                                String met = stepVariable2.getValueByPath("Result.Met");
                                 TableUtil.createRowAndFill(table, 1000, Arrays.asList(stepName, DateUtils.localDate2LongString(LocalDateTime.now())));
-                                TableUtil.fillTableData(table, StepStatus.getDescByCode(status), numeric == null ? "" : String.valueOf(numeric), units, "", low, high);
+                                TableUtil.fillTableData(table, StepStatus.getDescByCode(status), numeric == null ? "" : String.valueOf(numeric), units, "", low, high, met);
                             } else if (Objects.equals(subType, TestStepType.T_MULTIPLE_NUMERIC_LIMIT.name())) {
                                 TableUtil.createRowAndFill(table, 1000, Arrays.asList(stepName, DateUtils.localDate2LongString(LocalDateTime.now())));
                                 TableUtil.fillTableData(table, StepStatus.getDescByCode(status));
@@ -312,13 +310,15 @@ public class CreateWord {
                                     String units = list.get(i).getValueByPath("Units");
                                     String low = list.get(i).getValueByPath("Limits.LowExpr");
                                     String high = list.get(i).getValueByPath("Limits.HighExpr");
-                                    TableUtil.fillTableData(table, "", numeric == null ? "" : String.valueOf(numeric), units, "", low, high);
+                                    String met = list.get(i).getValueByPath("Met");
+                                    TableUtil.fillTableData(table, "", numeric == null ? "" : String.valueOf(numeric), units, "", low, high, met);
                                 }
                             } else if (Objects.equals(subType, TestStepType.T_STRING_VALUE.name())) {
                                 TableUtil.createRowAndFill(table, 1000, Arrays.asList(stepName, DateUtils.localDate2LongString(LocalDateTime.now())));
                                 String low = stepVariable2.getValueByPath("Limits.StringExpr");
                                 String str = stepVariable2.getValueByPath("String");
-                                TableUtil.fillTableData(table, StepStatus.getDescByCode(status), str, "", "", low);
+                                String met = stepVariable2.getValueByPath("Met");
+                                TableUtil.fillTableData(table, StepStatus.getDescByCode(status), str, "", "", low, met);
                             }
 
                         } else if (Objects.equals(type, "N_ACTION")) {
@@ -406,8 +406,8 @@ public class CreateWord {
                             if (Objects.equals(subType, FlowControlType.F_FOR.name())) {
                                 TableUtil.createRowAndMergeFill(table, 1500, 0, 7, Arrays.asList("For", condition, DateUtils.localDate2LongString(LocalDateTime.now())));
                             } else if (Objects.equals(subType, FlowControlType.F_END.name())) {
-                                //todo,流控步骤的类型，添加End（xxx）
-                                TableUtil.createRowAndMergeFill(table, 500, 0, 7, List.of("End"));
+                                String endType = stepVariable2.getValueByPath("endType");
+                                TableUtil.createRowAndMergeFill(table, 500, 0, 7, List.of(EndType.getDescByKey(endType)));
                             } else if (Objects.equals(subType, FlowControlType.F_IF.name())) {
                                 TableUtil.createRowAndMergeFill(table, 1500, 0, 7, Arrays.asList("If", condition, DateUtils.localDate2LongString(LocalDateTime.now())));
                             } else if (Objects.equals(subType, FlowControlType.F_ELSE_IF.name())) {
@@ -428,36 +428,7 @@ public class CreateWord {
                                 TableUtil.createRowAndMergeFill(table, 1500, 0, 7, Arrays.asList("Do While", condition, DateUtils.localDate2LongString(LocalDateTime.now())));
                             }
                         }
-
-                        //todo 额外结果
-                        if (Objects.nonNull(stepBase) && !CollectionUtils.isEmpty(stepBase.getStepAdditionalList())) {
-                            StringBuilder sb = new StringBuilder();
-                            for (StepAdditional i : stepBase.getStepAdditionalList()) {
-                                if (!i.getIsGraphs()) {
-                                    Object valueByPath = stepVariable2.getValueByPath("ExtraResults." + i.getId());
-                                    sb.append(valueByPath.toString());
-                                    sb.append("\n");
-                                }
-                            }
-                            //额外结果
-                            TableUtil.createRowAndMergeFill(table, 1000, 1, 7, Arrays.asList("Report Text"), 200);
-                            //Addition Result
-                            TableUtil.createRowAndMergeFill(table, 500, 1, 7, Arrays.asList("Addition Result"), 200);
-                            TableUtil.fillTableData(table, sb.toString());
-                        }
-                        //图表
-                        if (Objects.nonNull(stepBase)) {
-                            List<StepAdditional> stepAdditionalList = stepBase.getStepAdditionalList();
-                            if (!CollectionUtils.isEmpty(stepAdditionalList)) {
-                                stepAdditionalList = stepAdditionalList.stream().filter(stepAdditional -> Objects.equals(stepAdditional.getIsGraphs(), Boolean.TRUE)).collect(Collectors.toList());
-                                List<byte[]> chart = ChartUtil.chart(stepAdditionalList, stepVariable);
-                                for (int i = 0; i < stepAdditionalList.size(); i++) {
-                                    TableUtil.createRowAndMergeFill(table, 500, 0, 7, Collections.singletonList(stepAdditionalList.get(i).getTargetExpression()));
-                                    TableUtil.createRowAndMergeCell(table, 3500, 0, 7);
-                                    TableUtil.addPicture(table, chart.get(i), "picture");
-                                }
-                            }
-                        }
+                        addExtraResults(table, stepBase.getStepAdditionalList(), stepVariable);
                     }
                 }
 

@@ -23,7 +23,6 @@ import com.cetiti.utils.RedisUtil;
 import com.cetiti.utils.RestUtil;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.mongodb.core.MongoTemplate;
 import org.springframework.data.mongodb.core.query.Criteria;
@@ -425,9 +424,7 @@ public class TestSequenceServiceImpl implements TestSequenceService {
 
     @Override
     public BracketValidationResponse checkExpressionSyntax(String expression) {
-        BracketValidationResponse bracketValidationResponse = new BracketValidationResponse();
-        GrammarCheckUtils.FunctionNameVerification(expression, cacheService, bracketValidationResponse);
-        return bracketValidationResponse;
+        return GrammarCheckUtils.parseExpression(expression, cacheService);
     }
 
     @Override

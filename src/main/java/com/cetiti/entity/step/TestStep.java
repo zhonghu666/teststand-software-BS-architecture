@@ -49,6 +49,7 @@ public class TestStep extends StepBase {
                 }
                 step.addNestedAttribute("Limits.StringExpr", StringExpression.getLow(), "字符串");
                 step.addNestedAttribute("String", stringParam, "");
+                step.addNestedAttribute("Met", StringExpression.getMet(), "比较方式");
                 break;
             case T_MULTIPLE_NUMERIC_LIMIT:
                 String collect;
@@ -75,6 +76,7 @@ public class TestStep extends StepBase {
                     }
                     Measurement.addNestedAttribute("Status", res != 2, "结果");
                     Measurement.addNestedAttribute("Units", i.getUnit(), "单位");
+                    Measurement.addNestedAttribute("Met", i.getMet(), "比较方式");
                     step.addToListAtPath("Measurement", Measurement);
                 }
                 break;
@@ -85,7 +87,6 @@ public class TestStep extends StepBase {
                     step = StepVariable.RESULT_SUCCESS(StepStatus.FAILED);
                 }
                 Map<String, Object> response = ExpressionParserUtils.expressionParsingExecution(testStepExpressions.get(0).getParamExpression(), stepVariable, cacheService, testSequenceId);
-                log.info("临时日志：{}", response.get("result"));
                 step.addNestedAttributeObject("Result.Numeric", response.get("result"), "测试参数结果");
                 if (StringUtils.isNotBlank(testStepExpressions.get(0).getHigh())) {
                     step.addNestedAttribute("Limits.HighExpr", testStepExpressions.get(0).getHigh(), "上限");
@@ -94,6 +95,7 @@ public class TestStep extends StepBase {
                     step.addNestedAttribute("Limits.LowExpr", testStepExpressions.get(0).getLow(), "下限");
                 }
                 step.addNestedAttribute("Result.Units", testStepExpressions.get(0).getUnit(), "单位");
+                step.addNestedAttribute("Result.Met", testStepExpressions.get(0).getMet(), "比较方式");
                 break;
             case T_PASS_FAIL:
                 TestStepExpression testStepExpression1 = testStepExpressions.get(0);

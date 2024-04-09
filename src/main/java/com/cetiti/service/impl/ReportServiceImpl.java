@@ -156,11 +156,8 @@ public class ReportServiceImpl implements ReportService {
         String dataPath = "";
         if (redisUtil.get(id + "recordId") != null) {
             String o = (String) redisUtil.get(id + "recordId");
-            log.info("临时日志:{}", 0);
             o = o.replaceAll("^\"|\"$", "");
-            log.info("临时日志:{}", o);
             String recordId = "recordId=" +o ;
-            log.info("临时日志:{}", recordId);
             RestResult resultFromApi = restUtil.getResultFromApi(restPathConfig.getAnalysis() + "/scene/data/getDirectoryStringByRecordId", null, recordId, HttpMethod.GET, "token");
             dataPath = (String) resultFromApi.getData();
             log.info("数据存储路径:入参：{}，返回:{}", redisUtil.get(id + "recordId"), JSON.toJSON(resultFromApi));

@@ -350,7 +350,7 @@ public class ExpressionParserUtils {
         System.out.println(stringObjectMap);*/
         //List<Object> allFinalValues = step.fetchAllFinalValues();
         //System.out.println(allFinalValues);
-        Object result = AviatorEvaluator.execute("1", new HashMap<>());
+        Object result = AviatorEvaluator.execute("1fad");
         System.out.println(result);
     }
 

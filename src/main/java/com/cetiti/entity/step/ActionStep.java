@@ -184,7 +184,6 @@ public class ActionStep extends StepBase {
                                 String jsonString = JSON.toJSONString(resultFromApi.getData());
                                 RedisUtil redisUtil = ApplicationContextHolder.getBean(RedisUtil.class);
                                 redisUtil.set(testSequenceId + "recordId", jsonString);
-                                log.info("临时日志:{}", redisUtil.get(testSequenceId + "recordId"));
                                 break;
                             case 4:
                                 step.addNestedAttribute("ActionSettings.siteId", (String) pram.get("siteId"), "场地编号");

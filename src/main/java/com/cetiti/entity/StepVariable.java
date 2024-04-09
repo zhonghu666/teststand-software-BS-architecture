@@ -265,7 +265,7 @@ public class StepVariable implements Serializable {
         step.addNestedAttribute("Result.Error.Code", errorCode.getCode(), "code");
         step.addNestedAttribute("Result.Error.Msg", errorCode.getDesc(), "Msg");
         step.addNestedAttribute("Result.Error.Occurred", errorCode.getOccurred(), "Occurred");
-        step.addNestedAttribute("Result.Status", status.getCode(), "Status");
+        step.addNestedAttribute("Result.Status", "", "Status");
         step.addNestedAttribute("Result.ReportTest", "", "ReportTest");
         step.addNestedAttribute("Result.Common", new StepVariable(), "Common");
         step.addNestedAttribute("Result.DataSource", "", "DataSource");
@@ -302,6 +302,7 @@ public class StepVariable implements Serializable {
                 step.addNestedAttribute("FlowStatus", false, "流控表达式结果");
                 step.addNestedAttribute("Expression", "condition", "表达式");
                 step.addNestedAttribute("FlowControlType", "subType", "流控类型");
+                step.addNestedAttribute("endType", "", "end类型");
                 break;
             case "N_STATEMENT":
                 step.addNestedAttribute("Expression", "expression", "表达式");

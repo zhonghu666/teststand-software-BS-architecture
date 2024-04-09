@@ -21,6 +21,7 @@ public class TestSequenceSaveRequest implements Serializable {
 
     @ApiModelProperty("step")
     @NotEmpty(message = "步骤不可为空")
+    @Valid
     private List<StepBase> stepList;
 
     @ApiModelProperty("数据调用")

@@ -43,8 +43,8 @@ public class GrammarCheckUtils {
         int index = 0;
         List<FunctionMetadata> function = getFunction(cacheService);
         List<String> tokens = new ArrayList<>();
-        //List<String> functionName = function.stream().map(FunctionMetadata::getFunctionName).collect(Collectors.toList());
-        List<String> functionName = Arrays.asList("GetNumElements", "CalculateRelativeDistance", "math.pow", "math.abs");
+        List<String> functionName = function.stream().map(FunctionMetadata::getFunctionName).collect(Collectors.toList());
+        //List<String> functionName = Arrays.asList("GetNumElements", "CalculateRelativeDistance", "math.pow", "math.abs");
         while (index < expression.length()) {
             char currentChar = expression.charAt(index);
             if (currentChar == '\'' || currentChar == '\"') {
@@ -194,10 +194,77 @@ public class GrammarCheckUtils {
         String expression = "(math.abs(math.sqrt(math.pow(Locals.data.[RunState.LoopIndex].northSpeed,2)+\n" +
                 "math.pow(Locals.data.[RunState.LoopIndex].eastSpeed,2))))*Locals.speed";
         BracketValidationResponse response = new BracketValidationResponse();
-        //FunctionNameVerification(expression, null, response);
-        hasMatchingBrackets(expression, response);
+        FunctionNameVerification(expression, null, response);
+        //hasMatchingBrackets(expression, response);
         System.out.println(JSON.toJSON(response));
 
+    }
+
+    public static BracketValidationResponse parseExpression(String expression, CacheService cacheService) {
+        String[] tokens = expression.split("(?<=[-+*/=(),])|(?=[-+*/=(),])");
+        Stack<String> stack = new Stack<>();
+        List<String> output = new ArrayList<>();
+        List<FunctionMetadata> function = getFunction(cacheService);
+        List<String> functionName = function.stream().map(FunctionMetadata::getFunctionName).collect(Collectors.toList());
+        for (String token : tokens) {
+            if (functionName.contains(token)) {
+                stack.push(token);
+            } else if (token.equals(",")) {
+                while (!stack.isEmpty() && !stack.peek().equals("(")) {
+                    output.add(stack.pop());
+                }
+            } else if (token.equals("(")) {
+                stack.push(token);
+            } else if (token.equals(")")) {
+                while (!stack.isEmpty() && !stack.peek().equals("(")) {
+                    output.add(stack.pop());
+                }
+                stack.pop(); // Pop the '('
+                if (!stack.isEmpty() && functionName.contains(stack.peek())) {
+                    output.add(stack.pop());
+                }
+            } else {
+                output.add(token);
+            }
+        }
+        while (!stack.isEmpty()) {
+            output.add(stack.pop());
+        }
+        Map<String, FunctionMetadata> expectedParamCounts = function.stream().collect(Collectors.toMap(FunctionMetadata::getFunctionName, a -> a));
+        return validateExpression(output, expectedParamCounts);
+    }
+
+    public static BracketValidationResponse validateExpression(List<String> output, Map<String, FunctionMetadata> functionMetadataMap) {
+        BracketValidationResponse response = new BracketValidationResponse();
+        Stack<String> stack = new Stack<>();
+        if (output.get(output.size() - 1).equals("=")) {
+            output = new ArrayList<>(output.subList(1, output.size() - 1)); // Remove the first (variable) and the last (assignment operator) elements
+        }
+        for (int i = 0; i < output.size(); i++) {
+            String token = output.get(i);
+            if (functionMetadataMap.containsKey(token)) {
+                FunctionMetadata functionMetadata = functionMetadataMap.get(token);
+                int arity = functionMetadata.getParamCount();
+                if (stack.size() != arity) {
+                    response.addError("Insufficient parameters for the function " + token + ". Expected " + arity + " parameters.", i - arity, i);
+                    stack.clear(); // Reset stack on error
+                    continue;
+                }
+                // Assume correct parameters and pop them
+                for (int j = 0; j < arity; j++) {
+                    stack.pop();
+                }
+                // Push a placeholder result to stack
+                stack.push("Result_of_" + token);
+            } else {
+                stack.push(token);
+            }
+        }
+        // Optionally check if the stack ends up with exactly one element, which should be the result of the whole expression
+        if (stack.size() != 1) {
+            response.addError("Expression does not evaluate to a single result.", null, null);
+        }
+        return response;
     }
 
 }
