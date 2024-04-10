@@ -19,7 +19,6 @@ import org.springframework.web.bind.annotation.*;
 
 import javax.annotation.Resource;
 import javax.validation.Valid;
-import java.util.Collection;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -110,8 +109,11 @@ public class TestSequenceController {
 
     @ApiOperation(value = "结束序列")
     @GetMapping("doneSequence")
-    public BaseJson<String> doneSequence(@RequestParam String mainSequenceId, @RequestParam(required = false) String childSequenceId, @RequestParam(required = false) String exceptVersion) {
-        return new BaseJson<String>().Success(testSequenceService.doneSequence(mainSequenceId, childSequenceId, exceptVersion));
+    public BaseJson<String> doneSequence(@RequestParam String mainSequenceId,
+                                         @RequestParam(required = false) String childSequenceId,
+                                         @RequestParam(required = false) String exceptVersion,
+                                         @RequestParam(required = false) String stepId) {
+        return new BaseJson<String>().Success(testSequenceService.doneSequence(mainSequenceId, childSequenceId, exceptVersion, stepId));
     }
 
     @ApiOperation(value = "批量执行步骤")

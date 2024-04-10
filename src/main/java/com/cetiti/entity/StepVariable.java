@@ -302,7 +302,7 @@ public class StepVariable implements Serializable {
                 step.addNestedAttribute("FlowStatus", false, "流控表达式结果");
                 step.addNestedAttribute("Expression", "condition", "表达式");
                 step.addNestedAttribute("FlowControlType", "subType", "流控类型");
-                step.addNestedAttribute("endType", "", "end类型");
+                step.addNestedAttribute("endType", "END_UNDEFINED", "end类型");
                 break;
             case "N_STATEMENT":
                 step.addNestedAttribute("Expression", "expression", "表达式");
@@ -406,5 +406,29 @@ public class StepVariable implements Serializable {
                 ((List<T>) finalWrapper.getValue()).add(value);
             }
         }
+    }
+    public boolean removeAttributeByPath(String path) {
+        if (path == null || path.isEmpty()) {
+            return false;
+        }
+        String[] keys = path.split("\\.");
+        Map<String, ValueWrapper<?>> currentMap = attributes;
+        for (int i = 0; i < keys.length - 1; i++) {
+            String key = keys[i];
+            ValueWrapper<?> wrapper = currentMap.get(key);
+            if (wrapper == null || !(wrapper.getValue() instanceof StepVariable)) {
+                return false; // Path is invalid or reaches a non-existent variable
+            }
+            StepVariable stepVar = (StepVariable) wrapper.getValue();
+            currentMap = stepVar.attributes;
+        }
+
+        // Remove the final key
+        String finalKey = keys[keys.length - 1];
+        if (currentMap.containsKey(finalKey)) {
+            currentMap.remove(finalKey);
+            return true;
+        }
+        return false;
     }
 }

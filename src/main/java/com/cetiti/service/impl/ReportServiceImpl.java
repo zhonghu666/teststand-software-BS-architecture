@@ -115,7 +115,7 @@ public class ReportServiceImpl implements ReportService {
     public Page<Report> getReportByQuery(String id, String testSequenceId, Integer pageNum, Integer pageSize) {
         Criteria criteria = new Criteria();
         if (StringUtils.isNotBlank(id)) {
-            criteria.and("id").is(id);
+            criteria.and("id").regex(id);
         }
         if (StringUtils.isNotBlank(testSequenceId)) {
             criteria.and("testSequenceId").is(testSequenceId);
@@ -150,14 +150,14 @@ public class ReportServiceImpl implements ReportService {
         report.setStatus(0);
         report.setTestSequenceId(id);
         report.setTestSequenceName(sequenceName);
-        report.setCreateTime(LocalDateTime.ofInstant(date.toInstant(), ZoneId.systemDefault()));
-        report.setUpdateTime(LocalDateTime.ofInstant(date.toInstant(), ZoneId.systemDefault()));
+        report.setCreateTime(LocalDateTime.ofInstant(date.toInstant(), ZoneId.of("Asia/Shanghai")));
+        report.setUpdateTime(LocalDateTime.ofInstant(date.toInstant(), ZoneId.of("Asia/Shanghai")));
         mongoTemplate.save(report);
         String dataPath = "";
         if (redisUtil.get(id + "recordId") != null) {
             String o = (String) redisUtil.get(id + "recordId");
             o = o.replaceAll("^\"|\"$", "");
-            String recordId = "recordId=" +o ;
+            String recordId = "recordId=" + o;
             RestResult resultFromApi = restUtil.getResultFromApi(restPathConfig.getAnalysis() + "/scene/data/getDirectoryStringByRecordId", null, recordId, HttpMethod.GET, "token");
             dataPath = (String) resultFromApi.getData();
             log.info("数据存储路径:入参：{}，返回:{}", redisUtil.get(id + "recordId"), JSON.toJSON(resultFromApi));

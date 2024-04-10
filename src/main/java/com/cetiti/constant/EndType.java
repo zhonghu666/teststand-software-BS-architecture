@@ -9,7 +9,8 @@ public enum EndType {
     END_WHILE("END_WHILE", "End (While)"),
     END_DO_WHILE("END_DO_WHILE", "End (Do While)"),
     END_SELECT("END_SELECT", "End (Select)"),
-    END_CASE("END_CASE", "End (Case)");
+    END_CASE("END_CASE", "End (Case)"),
+    END_UNDEFINED("END_UNDEFINED", "End");
 
     private String code;
     private String desc;

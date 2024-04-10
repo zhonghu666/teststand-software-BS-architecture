@@ -154,6 +154,11 @@ public class FlowControlStep extends StepBase {
                 case F_GOTO:
                     step.addNestedAttribute("GotoId", gotoStepId, "gotoId");
                     break;
+                case F_ELSE:
+                    for (StepBase stepBase : cacheService.getStep(testSequenceId).subList(startIndex + 1, endIndex)) {
+                        stepBase.execute(cacheService, pram);
+                    }
+                    break;
             }
             return step;
         } else {
@@ -224,7 +229,8 @@ public class FlowControlStep extends StepBase {
                     }
                     break;
                 case F_END:
-                    // 处理流控终结
+                case F_ELSE:
+                case F_GOTO:
                     step = StepVariable.RESULT_SUCCESS(StepStatus.DONE);
                     break;
                 default:

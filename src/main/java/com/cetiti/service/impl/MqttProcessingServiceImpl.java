@@ -1,5 +1,7 @@
 package com.cetiti.service.impl;
 
+import com.alibaba.fastjson.JSON;
+import com.alibaba.fastjson.JSONObject;
 import com.cetiti.entity.DataCallField;
 import com.cetiti.entity.StepVariable;
 import com.cetiti.entity.step.DataCallStep;
@@ -16,6 +18,8 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import java.util.Arrays;
 import java.util.List;
 import java.util.ArrayList;
+import java.util.Map;
+import java.util.concurrent.*;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import javax.annotation.Resource;
@@ -33,6 +37,8 @@ public class MqttProcessingServiceImpl implements MqttProcessingService {
     private final ObjectMapper mapper = new ObjectMapper();
 
     private final Pattern pattern = Pattern.compile("(.+)\\[(.+)=(.+)]");
+
+    private final Map<String, CompletableFuture<Boolean>> responseMap = new ConcurrentHashMap<>();
 
 
     @Override
@@ -106,6 +112,35 @@ public class MqttProcessingServiceImpl implements MqttProcessingService {
             log.info("解析耗时:{}", System.currentTimeMillis() - startTime);
         } catch (Exception e) {
             log.error("解析数据调用异常:", e);
+        }
+    }
+
+    @Override
+    public Boolean sceneDistributeResult(String topic, String msg) {
+        JSONObject jsonObject = JSON.parseObject(msg);
+        String uuid = (String) jsonObject.get("uuid");
+        Boolean success = (Boolean) jsonObject.get("success");
+        CompletableFuture<Boolean> future = responseMap.get(uuid);
+        if (future != null) {
+            future.complete(success);
+        }
+        return null;
+    }
+
+    @Override
+    public Boolean waitForResponse(String uuid) {
+        CompletableFuture<Boolean> future = new CompletableFuture<>();
+        responseMap.put(uuid, future);
+        try {
+            // 直接返回future结果，这里future完成时将直接返回布尔状态
+            return future.get(30, TimeUnit.SECONDS);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            return false; // 线程中断处理
+        } catch (ExecutionException | TimeoutException e) {
+            return false; // 执行异常或超时处理
+        } finally {
+            responseMap.remove(uuid);
         }
     }
 

@@ -11,6 +11,7 @@ import com.cetiti.constant.StepStatus;
 import com.cetiti.dto.*;
 import com.cetiti.entity.RestResult;
 import com.cetiti.entity.StepVariable;
+import com.cetiti.service.MqttProcessingService;
 import com.cetiti.service.impl.CacheService;
 import com.cetiti.utils.RedisUtil;
 import com.cetiti.utils.RestUtil;
@@ -111,7 +112,6 @@ public class ActionStep extends StepBase {
                             log.info("rsu cfg:{}", JSON.toJSONString(rsuCfgDto));
 
                         }
-                        //
                         if (rsuSceneConfigDto != null && rsuSceneConfigDto.isChange()) {
                             step.addNestedAttribute("ActionSettings.sdsEnable", rsuSceneConfigDto.isSdsEnable(), "感知数据共享");
                             step.addNestedAttribute("ActionSettings.clcEnable", rsuSceneConfigDto.isClcEnable(), "协作式变道");
@@ -200,9 +200,6 @@ public class ActionStep extends StepBase {
                 }
                 break;
             case SCENE:
-                step.addNestedAttribute("ActionSettings.actionType", actionType.name(), "类型");
-                step.addNestedAttribute("ActionSettings.childrenType", childrenType, "子类型");
-                step.addNestedAttribute("ActionSettings.sceneId", sceneId, "场景编号");
                 switch (childrenType) {
                     case 1:
                         for (SceneDistributeConfigSubDto rsuSceneConfig : sceneDistributeConfigDto.getRsuSceneConfigs()) {
@@ -218,6 +215,10 @@ public class ActionStep extends StepBase {
                         String uuid = (String) jsonObject.get("uuid");
                         stepVariable2.addNestedAttribute("RunState.Scene." + sceneId, uuid, "数据预制");
                         cacheService.saveOrUpdateStepVariable(testSequenceId, stepVariable2);
+                        MqttProcessingService mqttProcessingService = ApplicationContextHolder.getBean(MqttProcessingService.class);
+                        if (!mqttProcessingService.waitForResponse(uuid)) {
+                            step = StepVariable.RESULT_Fail(StepStatus.ERROR);
+                        }
                         break;
                     case 2:
                         String valueByPath = stepVariable2.getValueByPath("RunState.Scene." + sceneId);
@@ -227,6 +228,9 @@ public class ActionStep extends StepBase {
                     default:
                         throw new IllegalArgumentException("Unsupported children type");
                 }
+                step.addNestedAttribute("ActionSettings.actionType", actionType.name(), "类型");
+                step.addNestedAttribute("ActionSettings.childrenType", childrenType, "子类型");
+                step.addNestedAttribute("ActionSettings.sceneId", sceneId, "场景编号");
                 break;
             default:
                 throw new IllegalArgumentException("Unsupported action type");

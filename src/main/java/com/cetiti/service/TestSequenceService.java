@@ -111,9 +111,10 @@ public interface TestSequenceService {
      *
      * @param mainSequenceId
      * @param childSequenceId
+     * @param stepId
      * @return
      */
-    String doneSequence(String mainSequenceId, String childSequenceId, String exceptVersion);
+    String doneSequence(String mainSequenceId, String childSequenceId, String exceptVersion, String stepId);
 
     /**
      * 获取步骤模版

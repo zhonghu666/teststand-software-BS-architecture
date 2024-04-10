@@ -169,7 +169,7 @@ public class mockController {
     }
 
     @GetMapping("checkIfKeyExistsWithScan")
-    public Object checkIfKeyExistsWithScan(@RequestParam String key){
+    public Object checkIfKeyExistsWithScan(@RequestParam String key) {
         return redisUtil.checkIfKeyExistsWithScan(key);
     }
 
@@ -193,19 +193,55 @@ public class mockController {
         }
     }
 
-    @GetMapping("test2")
-    public Map<String, List<Number>> test2(@RequestParam String id, @RequestParam String path) {
-        StepVariable stepVariable = cacheService.getStepVariable(id);
-        List<StepVariable> valueByPath = stepVariable.getValueByPath(path);
-        List<Object> list = new ArrayList<>();
-        Map<String, List<Number>> stringListMap = ChartUtil.generateMapFromStepVariables(valueByPath);
-        return stringListMap;
+    @GetMapping("updateStepVariable")
+    public void updateStepVariable(@RequestParam(required = false) String id) {
+        if (id != null) {
+            TestSequence i = mongoTemplate.findById(id, TestSequence.class);
+            StepVariable stepVariable = i.getStepVariable();
+            StepVariable s = stepVariable.getValueByPath("RunState.SequenceFile.Data.Seq." + i.getSequenceName());
+            if (s == null) {
+                s = stepVariable.getValueByPath("RunState.SequenceFile.Data.Seq.");
+                stepVariable.removeAttributeByPath("RunState.SequenceFile.Data.Seq");
+            }
+            Map<String, StepVariable.ValueWrapper<?>> attributes = s.getAttributes();
+            Set<String> scopeStrings = attributes.keySet();
+            for (String scopeString : scopeStrings) {
+                StepVariable scopeVariable = s.getValueByPath(scopeString);
+                Map<String, StepVariable.ValueWrapper<?>> attributes1 = scopeVariable.getAttributes();
+                Set<String> nameStrings = attributes1.keySet();
+                for (String nameString : nameStrings) {
+                    s.addNestedAttribute(scopeString + "." + nameString + ".Result.Status", "", "");
+                }
+            }
+            stepVariable.addNestedAttribute("RunState.SequenceFile.Data.Seq." + i.getSequenceName(), s, "");
+            i.setStepVariable(stepVariable);
+            mongoTemplate.save(i);
+        } else {
+            List<TestSequence> all = mongoTemplate.findAll(TestSequence.class);
+            all.forEach(i -> {
+                StepVariable stepVariable = i.getStepVariable();
+                StepVariable s = stepVariable.getValueByPath("RunState.SequenceFile.Data.Seq." + i.getSequenceName());
+                if (s == null) {
+                    s = stepVariable.getValueByPath("RunState.SequenceFile.Data.Seq.");
+                    stepVariable.removeAttributeByPath("RunState.SequenceFile.Data.Seq");
+                }
+                Map<String, StepVariable.ValueWrapper<?>> attributes = s.getAttributes();
+                Set<String> scopeStrings = attributes.keySet();
+                for (String scopeString : scopeStrings) {
+                    StepVariable scopeVariable = s.getValueByPath(scopeString);
+                    Map<String, StepVariable.ValueWrapper<?>> attributes1 = scopeVariable.getAttributes();
+                    Set<String> nameStrings = attributes1.keySet();
+                    for (String nameString : nameStrings) {
+                        s.addNestedAttribute(scopeString + "." + nameString + ".Result.Status", "", "");
+                    }
+                }
+                stepVariable.addNestedAttribute("RunState.SequenceFile.Data.Seq." + i.getSequenceName(), s, "");
+                i.setStepVariable(stepVariable);
+                mongoTemplate.save(i);
+            });
+        }
     }
 
-    @GetMapping("test3")
-    public Object test3(@RequestParam String esn) {
-        return restUtil.getResultFromApi(restPathConfig.getBaseApi() + "/equ/equDetail", null, "esn=" + esn, HttpMethod.POST, "token");
-    }
 
     @Data
     public static class function {

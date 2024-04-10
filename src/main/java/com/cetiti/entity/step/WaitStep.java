@@ -25,7 +25,7 @@ public class WaitStep extends StepBase implements Serializable {
     public StepVariable performSpecificTask(CacheService cacheService, Map<String, Object> pram) {
         if (pram != null && pram.get("executeType") != null) {
             try {
-                Thread.sleep(waitTime);
+                Thread.sleep(waitTime*1000);
             } catch (Exception e) {
                 log.error("子序列-wait步骤报错", e);
             }

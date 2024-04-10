@@ -335,7 +335,7 @@ public class TestSequenceServiceImpl implements TestSequenceService {
     }
 
     @Override
-    public String doneSequence(String mainSequenceId, String childSequenceId, String exceptVersion) {
+    public String doneSequence(String mainSequenceId, String childSequenceId, String exceptVersion, String stepId) {
         String reportUrl = null;
         String username = JwtToken.getUsername(httpServletRequest.getHeader("token"));
         TestSequenceConfig testSequenceConfig = getTestSequenceConfig();

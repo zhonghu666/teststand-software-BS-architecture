@@ -37,7 +37,6 @@ public class TestStep extends StepBase {
     protected StepVariable performSpecificTask(CacheService cacheService, Map<String, Object> pram) {
         StepVariable step = StepVariable.RESULT_SUCCESS(StepStatus.DONE);
         StepVariable stepVariable = cacheService.getStepVariable(getTestSequenceId());
-        //StepVariable stepVariable = (StepVariable) redisUtil.get(testSequenceId);
         switch (subType) {
             case T_STRING_VALUE:
                 TestStepExpression StringExpression = testStepExpressions.get(0);

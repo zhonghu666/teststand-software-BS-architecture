@@ -338,8 +338,8 @@ public class ExpressionParserUtils {
         //currencyExecution(expression, step, null, "121");
         //Object valueByPath = step.getValueByPath("Locals.Data.BSM.speed");
         //System.out.println(valueByPath);
-         //Integer b = conditionalExecution(expression, step, null, "12");
-         //System.out.println(b);
+        //Integer b = conditionalExecution(expression, step, null, "12");
+        //System.out.println(b);
        /* currencyExecution(expression, step, null, "1212");
         Object valueByPath = step.getValueByPath("Locals.Data.RSI.xd");
         System.out.println(valueByPath);*/
@@ -350,8 +350,8 @@ public class ExpressionParserUtils {
         System.out.println(stringObjectMap);*/
         //List<Object> allFinalValues = step.fetchAllFinalValues();
         //System.out.println(allFinalValues);
-        Object result = AviatorEvaluator.execute("1fad");
-        System.out.println(result);
+        step.removeAttributeByPath("Locals.Data.BSM");
+        System.out.println(JSON.toJSON(step));
     }
 
     private static ScriptEngine engine = new ScriptEngineManager().getEngineByName("nashorn");

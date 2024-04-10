@@ -107,6 +107,7 @@ public class MqttReceiverConfig {
         adapter.addTopic("guoqi/scene/auto/main/result/+");
         adapter.addTopic("guoqi/scene/auto/sub/result/+");
         adapter.addTopic("guoqi/scene/auto/error/+");
+        adapter.addTopic("yk/guoqi/mec/+/presend/ack");
         return adapter;
     }
 
@@ -120,6 +121,8 @@ public class MqttReceiverConfig {
                 String msg = message.getPayload().toString();
                 if (topic.contains("result")) {
                     mqttProcessingService.dataCallParse(topic, msg);
+                } else if (topic.contains("presend")) {
+                    mqttProcessingService.sceneDistributeResult(topic, msg);
                 }
             }
         };
