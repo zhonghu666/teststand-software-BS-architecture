@@ -6,11 +6,13 @@ import com.cetiti.config.MongoConfig;
 import com.cetiti.entity.FunctionMetadata;
 import com.cetiti.response.BracketValidationResponse;
 import com.cetiti.service.impl.CacheService;
+import lombok.Data;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.data.mongodb.core.MongoTemplate;
 import utils.entity.BusinessException;
 
 import java.util.*;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 public class GrammarCheckUtils {
@@ -22,6 +24,7 @@ public class GrammarCheckUtils {
             "Globals",
             "SequenceData"
     );
+    private static final Set<String> VALID_BRACKETS = new HashSet<>(Arrays.asList("(", ")", "[", "]", "{", "}",",","'","'"));
 
     /**
      * 检查给字符串是否为参数。
@@ -39,92 +42,6 @@ public class GrammarCheckUtils {
         return parts.length >= 1 && VALID_PREFIXES.contains(parts[0]);
     }
 
-    public static void FunctionNameVerification(String expression, CacheService cacheService, BracketValidationResponse response) {
-        int index = 0;
-        List<FunctionMetadata> function = getFunction(cacheService);
-        List<String> tokens = new ArrayList<>();
-        List<String> functionName = function.stream().map(FunctionMetadata::getFunctionName).collect(Collectors.toList());
-        //List<String> functionName = Arrays.asList("GetNumElements", "CalculateRelativeDistance", "math.pow", "math.abs");
-        while (index < expression.length()) {
-            char currentChar = expression.charAt(index);
-            if (currentChar == '\'' || currentChar == '\"') {
-                int start = index;
-                index++; // 移动到引号之后的字符
-                // 寻找匹配的闭合引号
-                while (index < expression.length() && expression.charAt(index) != currentChar) {
-                    index++;
-                }
-                // 检查是否找到闭合引号
-                if (index >= expression.length()) {
-                    throw new BusinessException("Unmatched quotes in expression.");
-                }
-                // 包括闭合引号
-                tokens.add(expression.substring(start, index + 1));
-                index++; // 移动到闭合引号之后的字符
-            } else if (Character.isLetterOrDigit(currentChar) || currentChar == '.' || currentChar == '[' || currentChar == ']' || currentChar == '_') {
-                int varStart = index;
-                while (index < expression.length() && (Character.isLetterOrDigit(expression.charAt(index)) || expression.charAt(index) == '.' || expression.charAt(index) == '[' || expression.charAt(index) == ']' || expression.charAt(index) == '_')) {
-                    if (expression.charAt(index) == '[') {
-                        index = expression.indexOf(']', index);
-                        if (index == -1) {
-                            throw new BusinessException("Unmatched brackets in expression.");
-                        }
-                    }
-                    index++;
-                }
-                String token = expression.substring(varStart, index);
-                if (!token.isEmpty()) {
-                    tokens.add(token);
-                    if (!StringUtils.isNumeric(token) && !isValidPrefix(token)) {
-                        if (functionName.stream().noneMatch(token::contains)) {
-                            response.addError(token, varStart, index);
-                        }
-                    }
-                }
-            } else {
-                index++;
-            }
-            // 跳过非标识符字符
-            while (index < expression.length() && !(Character.isLetterOrDigit(expression.charAt(index)) || expression.charAt(index) == '_' || expression.charAt(index) == '\'' || expression.charAt(index) == '\"')) {
-                index++;
-            }
-        }
-
-        // 用于存储当前函数名称和参数列表
-        String currentFunction = null;
-        List<String> currentParams = new ArrayList<>();
-        Map<String, FunctionMetadata> expectedParamCounts = function.stream().collect(Collectors.toMap(FunctionMetadata::getFunctionName, a -> a));
-        for (String token : tokens) {
-            if (functionName.contains(token)) {
-                // 如果找到新的函数名称，先处理上一个函数的参数
-                if (currentFunction != null) {
-                    // 检查参数个数是否符合预期
-                    FunctionMetadata functionMetadata = expectedParamCounts.get(currentFunction);
-                    if (currentParams.size() != functionMetadata.getParamCount()) {
-                        throw new BusinessException("Incorrect number of parameters for function " + currentFunction);
-                    }
-                    // TODO: 根据expectedParamTypes验证每个参数的类型
-
-                    // 清空参数列表，准备下一个函数的参数收集
-                    currentParams.clear();
-                }
-                // 更新当前处理的函数名称
-                currentFunction = token;
-            } else if (currentFunction != null) {
-                // 当前token不是函数名称，将其作为参数添加到当前函数的参数列表中
-                currentParams.add(token);
-            }
-        }
-
-        // 处理最后一个函数的参数
-        if (currentFunction != null && !currentParams.isEmpty()) {
-            // 检查参数个数是否符合预期
-            if (currentParams.size() != expectedParamCounts.get(currentFunction).getParamCount()) {
-                throw new BusinessException("Incorrect number of parameters for function " + currentFunction);
-            }
-            // TODO: 根据expectedParamTypes验证每个参数的类型
-        }
-    }
 
     private static class Bracket {
         char type;
@@ -136,26 +53,37 @@ public class GrammarCheckUtils {
         }
     }
 
+    /**
+     * 实现括号匹配检查并返回错误括号的位置，我们可以使用一个栈（Stack）来跟踪左括号的位置，当遇到一个右括号时，我们检查栈顶的左括号是否与之匹配，并记录括号的位置。
+     * 如果在处理表达式的过程中遇到无法匹配的右括号，或者在表达式结束后栈中仍然有未匹配的左括号，我们就可以确定表达式中括号的匹配是不正确的，并且返回相关的位置信息
+     * 尝试访问或移除栈（Stack）顶部元素之前，检查栈是否为空。如果栈为空，这意味着遇到了一个没有对应开括号的闭括号。
+     * todo 多闭括号判断时，错误括号索引会有错误。
+     * @param expression
+     * @param result
+     */
     public static void hasMatchingBrackets(String expression, BracketValidationResponse result) {
         Stack<Bracket> stack = new Stack<>();
         for (int i = 0; i < expression.length(); i++) {
             char ch = expression.charAt(i);
+
             if (ch == '(' || ch == '[') {
                 stack.push(new Bracket(ch, i));
             } else if (ch == ')' || ch == ']') {
                 if (stack.isEmpty()) {
-                    result.addError("Unmatched closing bracket", i, null);
+                    result.addError(") Unmatched closing bracket", i, 0);
+                    continue;  // 继续检查表达式，寻找其他可能的错误
                 }
                 Bracket top = stack.pop();
                 if (!isMatchingPair(top.type, ch)) {
-                    result.addError("Mismatched bracket, expected " + getExpectedClosing(top.type) + " but found " + ch, i, null);
+                    result.addError("Mismatched bracket, expected " + getExpectedClosing(top.type) + " but found " + ch, i, 0);
                 }
             }
         }
-        // 表达式遍历完成后，检查是否有未匹配的开括号
-        if (!stack.isEmpty()) {
-            Bracket lastUnmatched = stack.pop();
-            result.addError("Unmatched opening bracket", lastUnmatched.position, null);
+
+        // 检查是否有未匹配的开括号
+        while (!stack.isEmpty()) {
+            Bracket firstUnmatched = stack.pop();
+            result.addError("( Unmatched opening bracket", firstUnmatched.position, 0);
         }
     }
 
@@ -191,80 +119,147 @@ public class GrammarCheckUtils {
     }
 
     public static void main(String[] args) {
-        String expression = "(math.abs(math.sqrt(math.pow(Locals.data.[RunState.LoopIndex].northSpeed,2)+\n" +
-                "math.pow(Locals.data.[RunState.LoopIndex].eastSpeed,2))))*Locals.speed";
+        String expression = "math.abs(math.sqrt(math.pow(Locals.data.[RunState.LoopIndex].HV_northSpeed,2,2) + math.pow(Locals.data.[RunState.LoopIndex].HV_eastSpeed,2))-Locals.data.[RunState.LoopIndex].RV_speed)";
         BracketValidationResponse response = new BracketValidationResponse();
-        FunctionNameVerification(expression, null, response);
-        //hasMatchingBrackets(expression, response);
+        hasMatchingBrackets(expression, response);
         System.out.println(JSON.toJSON(response));
-
     }
 
-    public static BracketValidationResponse parseExpression(String expression, CacheService cacheService) {
-        String[] tokens = expression.split("(?<=[-+*/=(),])|(?=[-+*/=(),])");
-        Stack<String> stack = new Stack<>();
-        List<String> output = new ArrayList<>();
-        List<FunctionMetadata> function = getFunction(cacheService);
-        List<String> functionName = function.stream().map(FunctionMetadata::getFunctionName).collect(Collectors.toList());
-        for (String token : tokens) {
-            if (functionName.contains(token)) {
-                stack.push(token);
-            } else if (token.equals(",")) {
-                while (!stack.isEmpty() && !stack.peek().equals("(")) {
-                    output.add(stack.pop());
-                }
+
+    @Data
+    static class Token {
+        String value;
+        int startPos;
+        int endPos;
+
+        Token(String value, int startPos, int endPos) {
+            this.value = value;
+            this.startPos = startPos;
+            this.endPos = endPos;
+        }
+    }
+
+    /**
+     * 遍历分割后的表达式数组，并逐层识别和处理最内层的函数调用，直至所有的函数调用都被处理完毕。这种方法允许我们在解析过程中动态地判断函数是否含有嵌套，并在确认一个函数为最内层函数后立即进行处理和替换。
+     *
+     * @param expression
+     * @param cacheService
+     * @return
+     */
+    public static void processExpression(String expression, CacheService cacheService, BracketValidationResponse response) {
+        List<Token> tokens = new ArrayList<>();
+        List<FunctionMetadata> functions = getFunction(cacheService);
+        List<String> functionNames = functions.stream().filter(i -> i.getType().equals("Functions")).map(FunctionMetadata::getFunctionName).collect(Collectors.toList());
+        Map<String, FunctionMetadata> functionMap = functions.stream().filter(i -> i.getType().equals("Functions")).collect(Collectors.toMap(FunctionMetadata::getFunctionName, a -> a));
+        Map<String, FunctionMetadata> OperatorMap = functions.stream().filter(i -> i.getType().equals("Operators")).collect(Collectors.toMap(FunctionMetadata::getFunctionName, a -> a));
+        int index = 0;
+        int functionCounter = 0;
+        while (index < expression.length()) {
+            int start = index;
+            while (index < expression.length() && !"+-*/=(), ".contains(expression.substring(index, index + 1))) {
+                index++;
+            }
+            if (start != index) {
+                tokens.add(new Token(expression.substring(start, index), start, index - 1));
+            }
+            if (index < expression.length() && "+-*/=(),".contains(expression.substring(index, index + 1))) {
+                tokens.add(new Token(expression.substring(index, index + 1), index, index));
+                index++;
+            }
+            while (index < expression.length() && " ".contains(expression.substring(index, index + 1))) {
+                index++;  // Skip spaces
+            }
+        }
+        Stack<Integer> stack = new Stack<>();
+        int i = 0;
+        legalVerify(tokens, response, functions);
+        while (i < tokens.size()) {
+            String token = tokens.get(i).getValue();
+            if (functionNames.contains(token)) {
+                // Push the index of the function name onto the stack
+                stack.push(i);
             } else if (token.equals("(")) {
-                stack.push(token);
+                // Push the index of '(' onto the stack
+                stack.push(i);
             } else if (token.equals(")")) {
-                while (!stack.isEmpty() && !stack.peek().equals("(")) {
-                    output.add(stack.pop());
+                // Process closing parenthesis
+                List<Integer> tempStack = new ArrayList<>();
+                while (!stack.isEmpty() && !tokens.get(stack.peek()).getValue().equals("(")) {
+                    tempStack.add(stack.pop());
                 }
-                stack.pop(); // Pop the '('
-                if (!stack.isEmpty() && functionName.contains(stack.peek())) {
-                    output.add(stack.pop());
+                if (!stack.isEmpty() && tokens.get(stack.peek()).getValue().equals("(")) {
+                    stack.pop(); // Pop the '('
                 }
-            } else {
-                output.add(token);
+                if (!stack.isEmpty() && functionNames.contains(tokens.get(stack.peek()).getValue())) {
+                    int funcIndex = stack.pop();
+                    // Check if the function call is the most inner one
+                    if (tempStack.isEmpty()) { // No other functions inside
+                        replaceFunctionWithPlaceholder(tokens, funcIndex, i, "f" + (++functionCounter), functionMap, OperatorMap, response);
+                        i = funcIndex; // Reset i to the position of the new placeholder
+                    }
+                }
             }
+            i++;
         }
-        while (!stack.isEmpty()) {
-            output.add(stack.pop());
-        }
-        Map<String, FunctionMetadata> expectedParamCounts = function.stream().collect(Collectors.toMap(FunctionMetadata::getFunctionName, a -> a));
-        return validateExpression(output, expectedParamCounts);
     }
 
-    public static BracketValidationResponse validateExpression(List<String> output, Map<String, FunctionMetadata> functionMetadataMap) {
-        BracketValidationResponse response = new BracketValidationResponse();
-        Stack<String> stack = new Stack<>();
-        if (output.get(output.size() - 1).equals("=")) {
-            output = new ArrayList<>(output.subList(1, output.size() - 1)); // Remove the first (variable) and the last (assignment operator) elements
-        }
-        for (int i = 0; i < output.size(); i++) {
-            String token = output.get(i);
-            if (functionMetadataMap.containsKey(token)) {
-                FunctionMetadata functionMetadata = functionMetadataMap.get(token);
-                int arity = functionMetadata.getParamCount();
-                if (stack.size() != arity) {
-                    response.addError("Insufficient parameters for the function " + token + ". Expected " + arity + " parameters.", i - arity, i);
-                    stack.clear(); // Reset stack on error
-                    continue;
-                }
-                // Assume correct parameters and pop them
-                for (int j = 0; j < arity; j++) {
-                    stack.pop();
-                }
-                // Push a placeholder result to stack
-                stack.push("Result_of_" + token);
-            } else {
-                stack.push(token);
+    private static void legalVerify(List<Token> tokens, BracketValidationResponse response, List<FunctionMetadata> functions) {
+        Pattern numberPattern = Pattern.compile("-?\\d+(\\.\\d+)?"); // Pattern for numbers (integer and floating point)
+        Pattern identifierPattern = Pattern.compile("[a-zA-Z_]\\w*"); // Pattern for valid identifiers (variable names)
+        for (Token token : tokens) {
+            String value = token.getValue();
+            if (!isValidPrefix(value) && functions.stream().noneMatch(i -> i.getFunctionName().equals(value)) &&
+                    !numberPattern.matcher(value).matches() && !identifierPattern.matcher(value).matches()&&!VALID_BRACKETS.contains(value)) {
+                System.out.println(value);
+                response.addError("illegal characters " + value, token.getStartPos(), token.getEndPos());
             }
         }
-        // Optionally check if the stack ends up with exactly one element, which should be the result of the whole expression
-        if (stack.size() != 1) {
-            response.addError("Expression does not evaluate to a single result.", null, null);
-        }
-        return response;
     }
 
+    private static void replaceFunctionWithPlaceholder(List<Token> tokens, int start, int end, String
+            placeholder,
+                                                       Map<String, FunctionMetadata> functionMetadataMap,
+                                                       Map<String, FunctionMetadata> operatorMap,
+                                                       BracketValidationResponse response) {
+        List<Token> removed = new ArrayList<>();
+        Token lastNonOperatorToken = null;
+        boolean flag = false;
+        int operatorCount = 0;
+
+        for (int j = end; j >= start; j--) {
+            Token token = tokens.get(j);
+            if (!token.getValue().equals(",") && !token.getValue().equals("(") && !token.getValue().equals(")")) {
+                if (operatorMap.containsKey(token.getValue())) {
+                    flag = true;
+                    // Check if current operator's operands are valid
+                    if (lastNonOperatorToken == null || operatorCount >= 1) {
+                        response.addError("Invalid operation" + token.getValue(), token.getStartPos(), token.getEndPos());
+                    }
+                    operatorCount++;
+                } else {
+                    lastNonOperatorToken = token;
+                    operatorCount = 0;  // Reset operator count after a non-operator token
+                }
+                removed.add(token);
+            }
+            tokens.remove(j);
+        }
+        Collections.reverse(removed);
+        System.out.println(JSON.toJSON(removed));
+        Token functionName = removed.get(0);
+
+        // Validate function parameter count
+        if (functionMetadataMap.containsKey(functionName.getValue())) {
+            FunctionMetadata functionMetadata = functionMetadataMap.get(functionName.getValue());
+            int paramCount = flag ? 1 : removed.size() - 1;
+            if (functionMetadata.getParamCount() != paramCount) {
+                response.addError("Invalid parameter count for " + functionName.getValue(), functionName.getStartPos(), functionName.getEndPos());
+            }
+        } else {
+            response.addError("Function not defined: " + functionName.getValue(), functionName.getStartPos(), functionName.getEndPos());
+        }
+
+        tokens.add(start, new Token(placeholder, removed.get(0).getStartPos(), removed.get(0).getStartPos() + 1));
+    }
 }
+

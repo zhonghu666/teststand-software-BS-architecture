@@ -424,7 +424,14 @@ public class TestSequenceServiceImpl implements TestSequenceService {
 
     @Override
     public BracketValidationResponse checkExpressionSyntax(String expression) {
-        return GrammarCheckUtils.parseExpression(expression, cacheService);
+        BracketValidationResponse response = new BracketValidationResponse();
+        expression = expression.replace(" ", "").replaceAll("\\s+", "");
+        GrammarCheckUtils.hasMatchingBrackets(expression, response);
+        if (!response.isValid()) {
+            return response;
+        }
+        GrammarCheckUtils.processExpression(expression, cacheService, response);
+        return response;
     }
 
     @Override

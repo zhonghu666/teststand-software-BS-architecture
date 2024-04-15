@@ -14,6 +14,7 @@ import com.cetiti.expression.array.GetNumElementsFunction;
 import com.cetiti.expression.numeric.CalculateRelativeDistance;
 import com.cetiti.service.impl.CacheService;
 import com.googlecode.aviator.AviatorEvaluator;
+import com.googlecode.aviator.Expression;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.data.mongodb.core.MongoTemplate;
@@ -331,7 +332,7 @@ public class ExpressionParserUtils {
         AviatorEvaluator.addFunction(new GetArrayBoundsFunction());
         //String expression = "CalculateRelativeDistance(list.[GetNumElements(list)-1].hv_lat,list.[GetNumElements(list)-1].hv_lon,Locals.Data.lat,Locals.Data.lon)";
         //String expression = "Locals.Data.BSM.speed";
-        String expression = "dasa";
+        //String expression = "dasa";
         //replacePatternsWithValues(expression, step, null, null);
         // String expression = "RunState_LoopNumPassed + RunState_LoopNumIterations=30";
         //String expression = "Locals.Data.lat";

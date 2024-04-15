@@ -5,8 +5,10 @@ import com.cetiti.config.RestPathConfig;
 import com.cetiti.entity.*;
 import com.cetiti.entity.step.*;
 import com.cetiti.expression.ExpressionParserUtils;
+import com.cetiti.expression.GrammarCheckUtils;
 import com.cetiti.request.StepVariableDTO;
 import com.cetiti.request.ValueWrapperDTO;
+import com.cetiti.response.BracketValidationResponse;
 import com.cetiti.service.MqttProcessingService;
 import com.cetiti.service.impl.CacheService;
 import com.cetiti.service.impl.TestSequenceServiceImpl;
@@ -30,6 +32,8 @@ import javax.annotation.Resource;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.util.*;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 import static com.cetiti.constant.ValueType.STRING;
@@ -242,6 +246,14 @@ public class mockController {
         }
     }
 
+    @PostMapping("test4")
+    public void test4(@RequestBody String s) {
+        BracketValidationResponse response = new BracketValidationResponse();
+        GrammarCheckUtils grammarCheckUtils = new GrammarCheckUtils();
+        s = s.replace(" ", "").replaceAll("\\s+", "");
+        GrammarCheckUtils.processExpression(s, cacheService,response);
+        System.out.println(JSON.toJSON(response));
+    }
 
     @Data
     public static class function {
