@@ -2,23 +2,29 @@ package com.cetiti.service.impl;
 
 import com.alibaba.fastjson.JSON;
 import com.alibaba.fastjson.JSONObject;
+import com.cetiti.config.IMqttSender;
 import com.cetiti.entity.DataCallField;
 import com.cetiti.entity.StepVariable;
 import com.cetiti.entity.step.DataCallStep;
 import com.cetiti.entity.step.StepBase;
+import com.cetiti.request.CustomSignalFieldRequest;
+import com.cetiti.request.CustomSignalParesRequest;
 import com.cetiti.service.MqttProcessingService;
+import com.cetiti.utils.RedisUtil;
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.googlecode.aviator.AviatorEvaluator;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.commons.lang3.StringUtils;
 import org.springframework.data.mongodb.core.MongoTemplate;
 import org.springframework.data.mongodb.core.query.Criteria;
 import org.springframework.data.mongodb.core.query.Query;
 import org.springframework.stereotype.Service;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import utils.entity.InvalidDataException;
 
-import java.util.Arrays;
-import java.util.List;
-import java.util.ArrayList;
-import java.util.Map;
+import java.io.IOException;
+import java.util.*;
 import java.util.concurrent.*;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -33,6 +39,12 @@ public class MqttProcessingServiceImpl implements MqttProcessingService {
 
     @Resource
     private CacheService cacheService;
+
+    @Resource
+    private RedisUtil redisUtil;
+
+    @Resource
+    private IMqttSender iMqttSender;
 
     private final ObjectMapper mapper = new ObjectMapper();
 
@@ -82,7 +94,7 @@ public class MqttProcessingServiceImpl implements MqttProcessingService {
                                     for (JsonNode element : currentNode) {
                                         JsonNode childNode = extractNestedField(element, Arrays.copyOfRange(pathParts, Arrays.asList(pathParts).indexOf(part) + 1, pathParts.length));
                                         if (childNode != null && childNode.isValueNode()) {
-                                            finalResults.add(childNode.asText()); // 或其他适合的类型
+                                            finalResults.add(childNode.asText());
                                         }
                                     }
                                     break;
@@ -142,6 +154,104 @@ public class MqttProcessingServiceImpl implements MqttProcessingService {
         } finally {
             responseMap.remove(uuid);
         }
+    }
+
+    @Override
+    public void startCustomSignal(String topic, String msg) {
+        long startTime = System.currentTimeMillis();
+        log.info("数据调用消息入参:msg={}", msg);
+        String uuid = StringUtils.substringAfterLast(topic, "/");
+        List<CustomSignalFieldRequest> customSignalFieldRequests = (List<CustomSignalFieldRequest>) redisUtil.get(uuid + "startCustomSignal");
+        try {
+            JsonNode rootNode = mapper.readTree(msg);
+            Long timestamp = Long.valueOf(rootNode.get("timestamp").asText());
+            Map<String, Object> map = new HashMap<>();
+            map.put("timestamp", timestamp);
+            for (CustomSignalFieldRequest dataCallField : customSignalFieldRequests) {
+                String[] prefix = dataCallField.getOriginalPath().split(":");
+                String[] keyParts = prefix[0].split("\\.");
+                String esn = keyParts[0];
+                String name = keyParts[1];
+                JsonNode dataNode = findDataNode(rootNode.get("results"), esn, name);
+                if (dataNode != null) {
+                    String newPath = dataCallField.getNewPath();
+                    JsonNode currentNode = dataNode;
+                    String[] pathParts = prefix[1].split("\\.");
+                    List<Object> finalResults = new ArrayList<>();
+                    for (String part : pathParts) {
+                        if (part.contains("[")) {
+                            Matcher matcher = pattern.matcher(part);
+                            if (matcher.find()) {
+                                String arrayName = matcher.group(1);
+                                String filterField = matcher.group(2);
+                                String filterValue = matcher.group(3);
+                                currentNode = currentNode.get(arrayName);
+                                if (filterValue.equals("-1")) {
+                                    // 遍历整个数组
+                                    for (JsonNode element : currentNode) {
+                                        JsonNode childNode = extractNestedField(element, Arrays.copyOfRange(pathParts, Arrays.asList(pathParts).indexOf(part) + 1, pathParts.length));
+                                        if (childNode != null && childNode.isValueNode()) {
+                                            finalResults.add(childNode.asText()); // 或其他适合的类型
+                                        }
+                                    }
+                                    break;
+                                } else {
+                                    // 根据 filterValue 过滤数组
+                                    currentNode = filterArray(currentNode, filterField, filterValue);
+                                    if (currentNode == null) {
+                                        log.info("array筛选条件异常，结果为空，条件={}", filterField + "=" + filterValue);
+                                        break;
+                                    }
+                                }
+                            }
+                        } else {
+                            currentNode = currentNode.get(part);
+                        }
+                    }
+                    if (currentNode != null && !currentNode.isArray()) {
+                        Object finalValue = isFloatNumber(currentNode.asText()) ? Double.valueOf(currentNode.asText()) : currentNode.asText();
+                        map.put(newPath, finalValue);
+                    } else if (!finalResults.isEmpty()) {
+                        map.put(newPath, finalResults);
+                    }
+                }
+            }
+            iMqttSender.sendToMqtt("guoqi/web/custom/" + uuid + "/INFO", JSON.toJSONString(map));
+            log.info("解析耗时:{}", System.currentTimeMillis() - startTime);
+        } catch (Exception e) {
+            log.error("解析数据调用异常:", e);
+        }
+    }
+
+    @Override
+    public void parseCustomSignal(String topic, String msg) {
+        String uuid = StringUtils.substringAfterLast(topic, "/");
+        if (!redisUtil.hasKey(uuid + "parseCustomSignal")) {
+            return;
+        }
+        try {
+            Map<String, Object> result = new HashMap<>();
+            Map<String, Object> info = new HashMap<>();
+            Map<String, Object> map = mapper.readValue(msg, new TypeReference<Map<String, Object>>() {
+            });
+            List<CustomSignalParesRequest> customSignalParesRequests = redisUtil.lGet(uuid + "parseCustomSignal", 0, -1, CustomSignalParesRequest.class);
+            customSignalParesRequests.forEach(i -> {
+                Object response = null;
+                try {
+                    response = AviatorEvaluator.execute(i.getExpression(), map);
+                } catch (InvalidDataException e) {
+                    log.error("自定义信号表达式解析，参数无效 {}", e.getMessage());
+                }
+                info.put(i.getName(), response);
+            });
+            result.put("info", info);
+            result.put("timestamp", map.get("timestamp"));
+            iMqttSender.sendToMqtt("guoqi/web/target/custom/result/" + uuid, JSON.toJSONString(result));
+        } catch (IOException e) {
+            log.error("自定义信号解析异常", e);
+        }
+
+
     }
 
     private JsonNode extractNestedField(JsonNode node, String[] remainingPathParts) {

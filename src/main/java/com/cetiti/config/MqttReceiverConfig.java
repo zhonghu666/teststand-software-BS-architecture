@@ -106,6 +106,8 @@ public class MqttReceiverConfig {
         //订阅主题
         adapter.addTopic("guoqi/scene/auto/main/result/+");
         adapter.addTopic("guoqi/scene/auto/sub/result/+");
+        adapter.addTopic("guoqi/scene/auto/main/signal/result/+");
+        adapter.addTopic("guoqi/scene/auto/sub/signal/result/+");
         adapter.addTopic("guoqi/scene/auto/error/+");
         adapter.addTopic("yk/guoqi/mec/+/presend/ack");
         return adapter;
@@ -119,10 +121,13 @@ public class MqttReceiverConfig {
             if (topicObject != null) {
                 String topic = topicObject.toString();
                 String msg = message.getPayload().toString();
-                if (topic.contains("result")) {
-                    mqttProcessingService.dataCallParse(topic, msg);
+                if (topic.contains("signal")) {
+                    mqttProcessingService.startCustomSignal(topic, msg);
                 } else if (topic.contains("presend")) {
                     mqttProcessingService.sceneDistributeResult(topic, msg);
+                } else {
+                    mqttProcessingService.dataCallParse(topic, msg);
+
                 }
             }
         };

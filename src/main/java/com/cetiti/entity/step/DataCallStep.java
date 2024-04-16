@@ -47,8 +47,8 @@ public class DataCallStep extends StepBase {
                                 Collectors.collectingAndThen(Collectors.toSet(), ArrayList::new)
                         )
                 ));
-        List<Info> infos = groupedData.entrySet().stream()
-                .map(entry -> new Info(entry.getKey(), entry.getValue()))
+        List<DataCallInfo> infos = groupedData.entrySet().stream()
+                .map(entry -> new DataCallInfo(entry.getKey(), entry.getValue()))
                 .collect(Collectors.toList());
         dataCallStencil.setId(testSequenceId);
         dataCallStencil.setInfo(infos);
@@ -60,18 +60,4 @@ public class DataCallStep extends StepBase {
     }
 }
 
-@Data
- class Info implements Serializable {
-
-    @ApiModelProperty("协议名称")
-    private String name;
-
-    @ApiModelProperty("协议唯一标识")
-    private List<String> esn;
-
-    public Info(String name, List<String> esnList) {
-        this.name = name;
-        this.esn = esnList;
-    }
-}
 

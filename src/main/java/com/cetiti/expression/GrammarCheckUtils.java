@@ -119,7 +119,7 @@ public class GrammarCheckUtils {
     }
 
     public static void main(String[] args) {
-        String expression = "math.abs(math.sqrt(math.pow(Locals.data.[RunState.LoopIndex].HV_northSpeed,2,2) + math.pow(Locals.data.[RunState.LoopIndex].HV_eastSpeed,2))-Locals.data.[RunState.LoopIndex].RV_speed)";
+        String expression = "";
         BracketValidationResponse response = new BracketValidationResponse();
         hasMatchingBrackets(expression, response);
         System.out.println(JSON.toJSON(response));
@@ -208,8 +208,11 @@ public class GrammarCheckUtils {
         Pattern identifierPattern = Pattern.compile("[a-zA-Z_]\\w*"); // Pattern for valid identifiers (variable names)
         for (Token token : tokens) {
             String value = token.getValue();
-            if (!isValidPrefix(value) && functions.stream().noneMatch(i -> i.getFunctionName().equals(value)) &&
-                    !numberPattern.matcher(value).matches() && !identifierPattern.matcher(value).matches()&&!VALID_BRACKETS.contains(value)) {
+            if (!isValidPrefix(value)
+                    && functions.stream().noneMatch(i -> i.getFunctionName().equals(value)) &&
+                    !numberPattern.matcher(value).matches()
+                    && !identifierPattern.matcher(value).matches()
+                    &&!VALID_BRACKETS.contains(value)) {
                 System.out.println(value);
                 response.addError("illegal characters " + value, token.getStartPos(), token.getEndPos());
             }

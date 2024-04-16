@@ -73,18 +73,26 @@ public class mockController {
             BeanUtils.copyProperties(function, functionMetadata);
             mongoTemplate.save(functionMetadata);
         }
+        List<FunctionMetadata> all = mongoTemplate.findAll(FunctionMetadata.class);
+        cacheService.saveOrUpdateFunctionMetadata("Function", all);
         return functions.stream().map(function::getFunctionName).collect(Collectors.toList());
     }
 
     @DeleteMapping("deleteFunction")
     public Boolean deleteFunction() {
         mongoTemplate.remove(new Query(), FunctionMetadata.class);
+        cacheService.deleteFunctionName("Function");
+        cacheService.deleteFunctionMetadata("Function");
         return true;
     }
 
     @GetMapping("getFunctionName")
     public List<String> getFunctionName() {
-        return cacheService.getFunctionName("FunctionName");
+        return cacheService.getFunctionName("Function");
+    }
+
+    public List<FunctionMetadata> getFunctionMetadata() {
+        return cacheService.getFunctionMetadata("Function");
     }
 
     @PostMapping("stepExecute")
@@ -251,7 +259,7 @@ public class mockController {
         BracketValidationResponse response = new BracketValidationResponse();
         GrammarCheckUtils grammarCheckUtils = new GrammarCheckUtils();
         s = s.replace(" ", "").replaceAll("\\s+", "");
-        GrammarCheckUtils.processExpression(s, cacheService,response);
+        GrammarCheckUtils.processExpression(s, cacheService, response);
         System.out.println(JSON.toJSON(response));
     }
 

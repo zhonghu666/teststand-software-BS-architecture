@@ -16,7 +16,7 @@ public class DataCallStencil implements Serializable {
     private Boolean testStart;
 
     @ApiModelProperty("协议详情")
-    private List<Info> info;
+    private List<DataCallInfo> info;
 
     @ApiModelProperty("主协议")
     private String mainProto;

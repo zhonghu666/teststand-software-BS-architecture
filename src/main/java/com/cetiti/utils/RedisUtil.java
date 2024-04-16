@@ -448,16 +448,20 @@ public class RedisUtil {
         }
     }
 
-    public <T> List<T> getList(String key, Class<T> clazz) {
-        ListOperations<String, Object> listOps = redisTemplate.opsForList();
-        Long size = listOps.size(key);
-
-        // 获取序列化后的对象列表
-        List<Object> serializedList = listOps.range(key, 0, size - 1);
-
-        // 反序列化每个对象
-        return serializedList.stream().map(obj -> convertFromSerialized(obj, clazz)).collect(Collectors.toList());
+    public <T> List<T> lGet(String key, long start, long end, Class<T> type) {
+        try {
+            List<Object> result = redisTemplate.opsForList().range(key, start, end);
+            if (result == null) {
+                return Collections.emptyList();
+            }
+            return result.stream().map(type::cast).collect(Collectors.toList());
+        } catch (Exception e) {
+            // 在生产环境中，考虑使用日志框架记录这些异常，例如使用Logback或log4j
+            System.err.println("Error retrieving list from Redis: " + e.getMessage());
+            return Collections.emptyList();
+        }
     }
+
 
     @SuppressWarnings("unchecked")
     private <T> T convertFromSerialized(Object serialized, Class<T> clazz) {
