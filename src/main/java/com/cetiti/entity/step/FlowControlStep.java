@@ -121,6 +121,7 @@ public class FlowControlStep extends StepBase {
                     circularConfig.setWhileExpression(expressions[1]);
                     circularConfig.setIncrementExpression(expressions[2]);
                     try {
+                        StepVariable finalStep = step;
                         ExpressionParserUtils.parseAndExecuteForLoop(circularConfig, cacheService, testSequenceId, () -> {
                             cacheService.getStep(testSequenceId).subList(startIndex + 1, endIndex).forEach(i -> {
                                 StepVariable execute = i.execute(cacheService, pram);
@@ -132,7 +133,13 @@ public class FlowControlStep extends StepBase {
                     }
                     break;
                 case F_SELECT:
+                    step = StepVariable.RESULT_SUCCESS(StepStatus.DONE);
+                    break;
                 case F_END:
+                    step = StepVariable.RESULT_SUCCESS(StepStatus.DONE);
+                    String stepPath = "RunState.SequenceFile.Data.Seq." + testSequenceName + "." + scope + "." + name + "[" + id + "].endType";
+                    String valueByPath = stepVariable.getValueByPath(stepPath);
+                    step.addNestedAttribute("endType", valueByPath, "");
                     break;
                 case F_CASE:
                     if (defaultCase != null && defaultCase) {
@@ -160,7 +167,6 @@ public class FlowControlStep extends StepBase {
                     }
                     break;
             }
-            return step;
         } else {
             // 根据控制流类型执行不同的逻辑
             switch (subType) {
@@ -192,7 +198,6 @@ public class FlowControlStep extends StepBase {
                     int incrementValue = increment.startsWith("++") || increment.startsWith("--") ? 1 : Integer.parseInt(increment.substring(2));
                     boolean isPositiveIncrement = increment.startsWith("+") || increment.startsWith("++");
                     // 计算增量
-                    initialValue += isPositiveIncrement ? incrementValue : -incrementValue;
                     // 循环是否跳出
                     boolean exitLoop = comparison.equals("<") ? initialValue >= boundaryValue : comparison.equals("<=") ? initialValue > boundaryValue : comparison.equals(">") ? initialValue <= boundaryValue : !comparison.equals(">=") || initialValue < boundaryValue;
                     if (exitLoop) {
@@ -201,6 +206,7 @@ public class FlowControlStep extends StepBase {
                         redisUtil.del(key);
                         break;
                     }
+                    initialValue += isPositiveIncrement ? incrementValue : -incrementValue;
                     stepVariable.addNestedAttribute(variableName, initialValue, "For循环索引");
                     // 生成下一次循环表达式
                     String newIncrementPart = increment.startsWith("++") || increment.startsWith("--") ? increment : increment.charAt(0) + "=" + incrementValue;
@@ -229,17 +235,27 @@ public class FlowControlStep extends StepBase {
                     }
                     break;
                 case F_END:
+                    step = StepVariable.RESULT_SUCCESS(StepStatus.DONE);
+                    String stepPath = "RunState.SequenceFile.Data.Seq." + testSequenceName + "." + scope + "." + name + "[" + id + "].endType";
+                    String valueByPath = stepVariable.getValueByPath(stepPath);
+                    step.addNestedAttribute("endType", valueByPath, "");
+                    break;
                 case F_ELSE:
                 case F_GOTO:
+                case F_SELECT:
                     step = StepVariable.RESULT_SUCCESS(StepStatus.DONE);
                     break;
                 default:
                     throw new IllegalArgumentException("Unsupported control flow type");
             }
-            step.addNestedAttribute("Expression", condition, "表达式");
-            step.addNestedAttribute("FlowControlType", subType.name(), "流控类型");
-            return step;
         }
+        String expression = "";
+        if (StringUtils.isNotBlank(condition)) {
+            expression = ExpressionParserUtils.getCondition(condition, stepVariable, cacheService, testSequenceId);
+        }
+        step.addNestedAttribute("Expression", expression, "表达式");
+        step.addNestedAttribute("FlowControlType", subType.name(), "流控类型");
+        return step;
     }
 
     public static void main(String[] args) {

@@ -29,7 +29,7 @@ public class ChartUtil {
             String[] split = sourceExpression.split(",");
             //Object valueByPath = stepVariable.getValueByPath(sourceExpression);
             Object valueByPath = stepVariable.getValueByPath(split[0]);
-            log.info("sourceException value:{}", JSON.toJSONString(valueByPath));
+            log.info("sourceException key:{} value:{}", split[0], JSON.toJSONString(valueByPath));
             if (!(valueByPath instanceof List)) {
                 throw new IllegalArgumentException("类型错误, 表达式: " + sourceExpression + " 的值不是数组");
             }
@@ -68,10 +68,10 @@ public class ChartUtil {
                 while (iterator.hasNext()) {
                     Map.Entry<String, List<Number>> next = iterator.next();
                     String key = next.getKey();
-                    if (yKey.isEmpty()){
+                    if (yKey.isEmpty()) {
                         chart.addSeries(key, xData, next.getValue());
-                    }else {
-                        if (yKey.contains(key)){
+                    } else {
+                        if (yKey.contains(key)) {
                             chart.addSeries(key, xData, next.getValue());
                         }
                     }
@@ -145,69 +145,9 @@ public class ChartUtil {
 
 
     public static void main(String[] args) {
-
-//         创建图表对象
-        XYChart chart = new XYChartBuilder().width(400).height(200).title("折线图").xAxisTitle("X轴").yAxisTitle("Y轴").build();
-
-        // 添加数据
-        double[] xData = {1.0, 2.0, 3.0, 4.0, 5.0};
-        double[] yData = {1.0, 4.0, 9.0, 16.0, 25.0};
-        chart.addSeries("数据", xData, yData);
-
-        // 添加数据系列2
-        double[] xData2 = {1.0, 2.0, 3.0, 4.0, 5.0};
-        double[] yData2 = {2.0, 4.0, 6.0, 8.0, 10.0};
-        chart.addSeries("数据系列2", xData2, yData2);
-        List<String> list = Arrays.asList("123", "456", "789", "666", "333");
-
-        // 获取X坐标数组
-        int[] xCoordinates = new int[list.size()];
-        for (int i = 0; i < list.size(); i++) {
-            xCoordinates[i] = i;
-        }
-
-        // 获取Y坐标数组
-        int[] yCoordinates = new int[list.size()];
-        for (int i = 0; i < list.size(); i++) {
-            yCoordinates[i] = Integer.parseInt(list.get(i));
-        }
-
-        chart.addSeries("数据3", xCoordinates, yCoordinates);
-        chart.addSeries("数据4", new int[]{66, 77, 88, 99});
-
-        // 打印X坐标数组和Y坐标数组
-        System.out.println("X坐标数组：" + Arrays.toString(xCoordinates));
-        System.out.println("Y坐标数组：" + Arrays.toString(yCoordinates));
-
-        // 自定义图表样式
-        chart.getStyler().setDefaultSeriesRenderStyle(XYSeries.XYSeriesRenderStyle.Line);
-        // 显示图表
-        new SwingWrapper<>(chart).displayChart();
-
-//        try {
-//            BitmapEncoder.saveBitmap(chart, "1.png", BitmapEncoder.BitmapFormat.PNG);
-//            System.out.println("图表保存成功！");
-//        } catch (IOException e) {
-//            System.out.println("图表保存失败：" + e.getMessage());
-//        }
-
-        // 将图表转换为byte数组
-        byte[] chartBytes = null;
-        try (ByteArrayOutputStream outputStream = new ByteArrayOutputStream()) {
-            BitmapEncoder.saveBitmap(chart, outputStream, BitmapEncoder.BitmapFormat.PNG);
-            chartBytes = outputStream.toByteArray();
-            System.out.println("图表转换为byte数组成功！");
-        } catch (IOException e) {
-            System.out.println("图表转换为byte数组失败：" + e.getMessage());
-        }
-
-        // 将byte数组保存到本地文件
-        try (FileOutputStream outputStream = new FileOutputStream("1.png")) {
-            outputStream.write(chartBytes);
-            System.out.println("图表保存成功！");
-        } catch (IOException e) {
-            System.out.println("图表保存失败：" + e.getMessage());
-        }
+        String sourceExpression = "Locals.data,Locals.data.timestamp,Locals.data.RV_speed,Locals.data.HV_eastSpeed";
+        String[] split = sourceExpression.split(",");
+        System.out.println(split);
     }
 }
 

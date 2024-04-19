@@ -2,6 +2,7 @@ package com.cetiti.controller;
 
 import com.alibaba.fastjson.JSON;
 import com.cetiti.config.RestPathConfig;
+import com.cetiti.config.TokenManagerConfig;
 import com.cetiti.entity.*;
 import com.cetiti.entity.step.*;
 import com.cetiti.expression.ExpressionParserUtils;
@@ -9,6 +10,7 @@ import com.cetiti.expression.GrammarCheckUtils;
 import com.cetiti.request.StepVariableDTO;
 import com.cetiti.request.ValueWrapperDTO;
 import com.cetiti.response.BracketValidationResponse;
+import com.cetiti.service.CustomSignalService;
 import com.cetiti.service.MqttProcessingService;
 import com.cetiti.service.impl.CacheService;
 import com.cetiti.service.impl.TestSequenceServiceImpl;
@@ -63,6 +65,9 @@ public class mockController {
 
     @Resource
     private RestPathConfig restPathConfig;
+
+    @Resource
+    private TokenManagerConfig tokenManagerConfig;
 
 
     @PostMapping("function")
@@ -256,11 +261,20 @@ public class mockController {
 
     @PostMapping("test4")
     public void test4(@RequestBody String s) {
-        BracketValidationResponse response = new BracketValidationResponse();
-        GrammarCheckUtils grammarCheckUtils = new GrammarCheckUtils();
-        s = s.replace(" ", "").replaceAll("\\s+", "");
-        GrammarCheckUtils.processExpression(s, cacheService, response);
-        System.out.println(JSON.toJSON(response));
+        TestSequence byId = mongoTemplate.findById(s, TestSequence.class);
+        StepVariable stepVariable = byId.getStepVariable();
+        Object valueByPath = stepVariable.getValueByPath("RunState.SequenceFile.Data.Seq.test_for.Main.End[58b9fce4-eae5-4e98-9d8e-e4d34277d65b].endType");
+        System.out.println(JSON.toJSON(valueByPath));
+    }
+
+    @GetMapping("mockToken")
+    public String mockToken(@RequestParam Boolean status, @RequestParam String esn) {
+        return tokenManagerConfig.manageToken(status, esn);
+    }
+
+    @GetMapping("getRedisByKey")
+    public Object getRedisByKey(@RequestParam String key) {
+        return redisUtil.get(key);
     }
 
     @Data

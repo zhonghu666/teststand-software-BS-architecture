@@ -40,6 +40,7 @@ public class CustomSignalServiceImpl implements CustomSignalService {
 
     @Override
     public Boolean startCustomSignal(CustomSignalRequest request) {
+        log.info("开始/停止自定义信号数据同步入参:{}", JSON.toJSON(request));
         DataCallStencil dataCallStencil = new DataCallStencil();
         if (request.getStart()) {
             Map<String, List<String>> groupedData = request.getCustomSignalFieldRequests().stream()
@@ -60,16 +61,17 @@ public class CustomSignalServiceImpl implements CustomSignalService {
             dataCallStencil.setId(request.getEsn());
             dataCallStencil.setInfo(infos);
             dataCallStencil.setTestStart(true);
-            log.info("数据调用mqtt发送:{}", JSON.toJSON(dataCallStencil));
+            log.info("自定义信号开始mqtt发送:{}", JSON.toJSON(dataCallStencil));
             String token = tokenManagerConfig.manageToken(request.getStart(), request.getEsn());
-            Assert.handle(token != null, "数据拉齐窗口消耗完，请等待");
+            Assert.handle(token != null, "数据拉齐窗口消耗完，请等待", false);
             iMqttSender.sendToMqtt(token, JSON.toJSONString(dataCallStencil));
             redisUtil.set(request.getEsn() + "startCustomSignal", request.getCustomSignalFieldRequests());
         } else {
             dataCallStencil.setTestStart(false);
             dataCallStencil.setId(request.getEsn());
             String token = tokenManagerConfig.manageToken(request.getStart(), request.getEsn());
-            Assert.handle(token != null, "数据拉齐窗口回收失败");
+            Assert.handle(token != null, "数据拉齐窗口回收失败", false);
+            log.info("自定义信号结束");
             iMqttSender.sendToMqtt(token, JSON.toJSONString(dataCallStencil));
             redisUtil.del(request.getEsn() + "startCustomSignal");
         }

@@ -229,7 +229,7 @@ public class CreateWord {
     public static List<String> word(XWPFTable table, StepVariable stepVariable, String testSequenceName) {
         //子序列id
         List<String> idList = new ArrayList<>();
-        String path = "RunState.SequenceFile.Data.Seq." + testSequenceName;
+        String path = "RunState.SequenceFile.Report." + testSequenceName;
         StepVariable stepVariable1 = stepVariable.getValueByPath(path);
 
         Map<String, StepVariable.ValueWrapper<?>> attributes = stepVariable1.getAttributes();
@@ -247,6 +247,7 @@ public class CreateWord {
                 String stepName = nameString.substring(0, nameString.lastIndexOf("["));
                 //步骤id
                 String stepId = nameString.substring(nameString.lastIndexOf("[") + 1, nameString.lastIndexOf("]"));
+                String no = nameString.substring(nameString.lastIndexOf("]") + 1);
                 MongoTemplate mongoTemplate = ApplicationContextHolder.getBean(MongoConfig.MONGO_TEMPLATE, MongoTemplate.class);
                 StepBase stepBase = mongoTemplate.findById(stepId, StepBase.class);
                 //步骤变量
@@ -403,29 +404,29 @@ public class CreateWord {
                             String subType = stepVariable2.getValueByPath("FlowControlType");
                             Boolean flowStatus = stepVariable2.getValueByPath("FlowStatus");
                             String condition = stepVariable2.getValueByPath("Expression");
-                            if (Objects.equals(subType, FlowControlType.F_FOR.name())) {
-                                TableUtil.createRowAndMergeFill(table, 1500, 0, 7, Arrays.asList("For", condition, DateUtils.localDate2LongString(LocalDateTime.now())));
+                            String flowNo = "{" + no + "}  ";
+                            if (Objects.equals(subType, FlowControlType.F_FOR.name()) && flowStatus) {
+                                TableUtil.createRowAndMergeFill(table, 1500, 0, 7, Arrays.asList("For", flowNo + condition, DateUtils.localDate2LongString(LocalDateTime.now())));
                             } else if (Objects.equals(subType, FlowControlType.F_END.name())) {
-                                String endType = stepVariable2.getValueByPath("endType");
+                                String stepPath = "RunState.SequenceFile.Data.Seq." + testSequenceName + "." + scopeString + "." + stepName + "[" + stepId + "].endType";
+                                String endType = stepVariable.getValueByPath(stepPath);
                                 TableUtil.createRowAndMergeFill(table, 500, 0, 7, List.of(EndType.getDescByKey(endType)));
                             } else if (Objects.equals(subType, FlowControlType.F_IF.name())) {
                                 TableUtil.createRowAndMergeFill(table, 1500, 0, 7, Arrays.asList("If", condition, DateUtils.localDate2LongString(LocalDateTime.now())));
                             } else if (Objects.equals(subType, FlowControlType.F_ELSE_IF.name())) {
                                 TableUtil.createRowAndMergeFill(table, 1000, 0, 7, Arrays.asList("Else If", condition));
                             } else if (Objects.equals(subType, FlowControlType.F_ELSE.name())) {
-                                if (flowStatus != null && flowStatus) {
-                                    TableUtil.createRowAndMergeFill(table, 500, 0, 7, List.of("Else"));
-                                }
+                                TableUtil.createRowAndMergeFill(table, 500, 0, 7, List.of("Else"));
                             } else if (Objects.equals(subType, FlowControlType.F_SELECT.name())) {
                                 TableUtil.createRowAndMergeFill(table, 1500, 0, 7, Arrays.asList("Select", condition, DateUtils.localDate2LongString(LocalDateTime.now())));
                             } else if (Objects.equals(subType, FlowControlType.F_CASE.name())) {
                                 if (flowStatus != null && flowStatus) {
                                     TableUtil.createRowAndMergeFill(table, 500, 0, 7, List.of("Case: " + condition));
                                 }
-                            } else if (Objects.equals(subType, FlowControlType.F_WHILE.name())) {
-                                TableUtil.createRowAndMergeFill(table, 1500, 0, 7, Arrays.asList("While", condition, DateUtils.localDate2LongString(LocalDateTime.now())));
-                            } else if (Objects.equals(subType, FlowControlType.F_DO_WHILE.name())) {
-                                TableUtil.createRowAndMergeFill(table, 1500, 0, 7, Arrays.asList("Do While", condition, DateUtils.localDate2LongString(LocalDateTime.now())));
+                            } else if (Objects.equals(subType, FlowControlType.F_WHILE.name()) && flowStatus) {
+                                TableUtil.createRowAndMergeFill(table, 1500, 0, 7, Arrays.asList("While", flowNo + condition, DateUtils.localDate2LongString(LocalDateTime.now())));
+                            } else if (Objects.equals(subType, FlowControlType.F_DO_WHILE.name()) && flowStatus) {
+                                TableUtil.createRowAndMergeFill(table, 1500, 0, 7, Arrays.asList("Do While", flowNo + condition, DateUtils.localDate2LongString(LocalDateTime.now())));
                             }
                         }
                         addExtraResults(table, stepBase.getStepAdditionalList(), stepVariable);

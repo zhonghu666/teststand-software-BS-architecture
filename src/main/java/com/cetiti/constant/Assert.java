@@ -23,6 +23,13 @@ public class Assert {
         }
     }
 
+    public static void handle(Boolean judge, String exceptionMsg, Object data) {
+        if (!judge) {
+            log.error("错误信息:{}", exceptionMsg);
+            throw new BusinessException("500", exceptionMsg, data);
+        }
+    }
+
     public static void dataHandle(Boolean judge, String exceptionMsg) {
         if (!judge) {
             log.error("错误信息:{}", exceptionMsg);

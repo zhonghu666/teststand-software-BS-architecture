@@ -24,7 +24,7 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(BusinessException.class)
     public ResponseEntity<BaseJson<?>> handleBusinessException(BusinessException ex) {
         log.error("业务异常: {}", ex.getErrorMsg());
-        BaseJson<Object> baseJson = new BaseJson<>().Fail(ex.getErrorMsg(), ex.getErrorCode());
+        BaseJson<Object> baseJson = new BaseJson<>().Fail(ex.getErrorMsg(), ex.getData() != null ? ex.getData() : "500");
         return new ResponseEntity<>(baseJson, HttpStatus.OK);
     }
 

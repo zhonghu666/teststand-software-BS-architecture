@@ -351,8 +351,12 @@ public class ExpressionParserUtils {
         System.out.println(stringObjectMap);*/
         //List<Object> allFinalValues = step.fetchAllFinalValues();
         //System.out.println(allFinalValues);
-        step.removeAttributeByPath("Locals.Data.BSM");
-        System.out.println(JSON.toJSON(step));
+        String expression = "math.abs(math.sqrt(math.pow(Locals.data.[RunState.LoopIndex].HV_northSpeed,2,2)+\n" +
+                "math.pow(Locals.data.[RunState.LoopIndex].HV_eastSpeed,2))-Locals.data.[RunState.LoopIndex].RV_speed)";
+        expression = convertVariableName(expression);
+        Expression compiledExpr = AviatorEvaluator.compile(expression, true);
+
+        System.out.println(JSON.toJSON(compiledExpr));
     }
 
     private static ScriptEngine engine = new ScriptEngineManager().getEngineByName("nashorn");
@@ -467,4 +471,11 @@ public class ExpressionParserUtils {
         return functionName;
     }
 
+    public static String getCondition(String expression, StepVariable stepVariable, CacheService cacheService, String testSequenceId) {
+        expression = expression.replaceAll("\\s+", "");
+        expression = preprocessingExpression(expression, stepVariable, cacheService, testSequenceId);
+        Map<String, Object> env = replacePatternsWithValues(expression, stepVariable, cacheService, testSequenceId);
+        expression = convertVariableName(expression);
+        return env.entrySet().stream().reduce(expression, (expr, entry) -> expr.replaceAll("\\b" + entry.getKey() + "\\b", Matcher.quoteReplacement(entry.getValue().toString())), (expr1, expr2) -> expr1);
+    }
 }

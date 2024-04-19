@@ -18,6 +18,8 @@ public class BusinessException extends RuntimeException {
      */
     protected String errorMsg;
 
+    protected Object data;
+
     public BusinessException() {
         super();
     }
@@ -31,6 +33,13 @@ public class BusinessException extends RuntimeException {
         super(errorCode);
         this.errorCode = errorCode;
         this.errorMsg = errorMsg;
+    }
+
+    public BusinessException(String errorCode, String errorMsg, Object data) {
+        super(errorCode);
+        this.errorCode = errorCode;
+        this.errorMsg = errorMsg;
+        this.data = data;
     }
 
     public BusinessException(String errorCode, String errorMsg, Throwable cause) {

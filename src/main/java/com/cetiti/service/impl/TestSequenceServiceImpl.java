@@ -158,7 +158,12 @@ public class TestSequenceServiceImpl implements TestSequenceService {
         Assert.handle(!sequenceName, "名称:" + name + "重复");
         TestSequence testSequence = mongoTemplate.findById(id, TestSequence.class);
         Assert.handle(testSequence != null, "序列" + id + "不存在");
+        StepVariable stepVariable = testSequence.getStepVariable();
+        StepVariable s = stepVariable.getValueByPath("RunState.SequenceFile.Data.Seq." + testSequence.getSequenceName());
+        stepVariable.removeAttributeByPath("RunState.SequenceFile.Data.Seq." + testSequence.getSequenceName());
+        stepVariable.addNestedAttribute("RunState.SequenceFile.Data.Seq." + name, s, "");
         testSequence.setSequenceName(name);
+        testSequence.setStepVariable(stepVariable);
         mongoTemplate.save(testSequence);
         return id;
     }

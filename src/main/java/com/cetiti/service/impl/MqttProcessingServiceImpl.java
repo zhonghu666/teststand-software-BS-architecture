@@ -21,6 +21,7 @@ import org.springframework.data.mongodb.core.query.Query;
 import org.springframework.stereotype.Service;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import org.springframework.util.CollectionUtils;
 import utils.entity.InvalidDataException;
 
 import java.io.IOException;
@@ -159,9 +160,12 @@ public class MqttProcessingServiceImpl implements MqttProcessingService {
     @Override
     public void startCustomSignal(String topic, String msg) {
         long startTime = System.currentTimeMillis();
-        log.info("数据调用消息入参:msg={}", msg);
+        log.info("自定义信号消息入参:msg={}", msg);
         String uuid = StringUtils.substringAfterLast(topic, "/");
         List<CustomSignalFieldRequest> customSignalFieldRequests = (List<CustomSignalFieldRequest>) redisUtil.get(uuid + "startCustomSignal");
+        if (CollectionUtils.isEmpty(customSignalFieldRequests)) {
+            return;
+        }
         try {
             JsonNode rootNode = mapper.readTree(msg);
             Long timestamp = Long.valueOf(rootNode.get("timestamp").asText());

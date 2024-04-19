@@ -54,7 +54,7 @@ import static com.cetiti.constant.SpinType.CANNED_CYCLE;
 public abstract class StepBase implements Serializable {
 
     @Indexed(unique = true)
-    private String id;
+    protected String id;
 
     @ApiModelProperty("测试序列Id")
     @NotNull(message = "测试序列Id不为空")
@@ -62,11 +62,11 @@ public abstract class StepBase implements Serializable {
 
     @ApiModelProperty("测试序列名称")
     @NotNull(message = "测试序列名称不为空")
-    private String testSequenceName;
+    protected String testSequenceName;
 
     @ApiModelProperty("步骤名称")
     @NotNull(message = "步骤名称不为空")
-    private String name;
+    protected String name;
 
     @ApiModelProperty("反序列化类型-不入库")
     private String type;
@@ -75,7 +75,7 @@ public abstract class StepBase implements Serializable {
     private String stepType;
 
     @ApiModelProperty("作用域")
-    private String scope;
+    protected String scope;
 
     @ApiModelProperty("描述")
     private String describe;
@@ -195,6 +195,16 @@ public abstract class StepBase implements Serializable {
         step.addNestedAttribute("resultRecordStatus", resultRecordStatus != null ? resultRecordStatus : 1, "是否进入报告");
         String stepPath = "RunState.SequenceFile.Data.Seq." + testSequenceName + "." + scope + "." + name + "[" + id + "]";
         stepVariable.addNestedAttribute(stepPath, step, name);
+        String reportStepPath = "RunState.SequenceFile.Report." + testSequenceName + "." + scope + "." + name + "[" + id + "]";
+        if (stepVariable.getValueByPath(reportStepPath + "0") == null) {
+            step.addNestedAttribute("no", 0, "序号");
+            stepVariable.addNestedAttribute(reportStepPath + "0", step, "报告步骤");
+        } else {
+            Integer no = stepVariable.getValueByPath(reportStepPath + "0.no");
+            Integer nextNo = no + 1;
+            stepVariable.addNestedAttribute(reportStepPath + "0.no", nextNo, "序号");
+            stepVariable.addNestedAttribute(reportStepPath + nextNo, step, "报告步骤");
+        }
         cacheService.saveOrUpdateStepVariable(testSequenceId, stepVariable);
         return step;
     }
