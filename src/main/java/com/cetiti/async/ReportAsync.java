@@ -34,10 +34,7 @@ import java.io.File;
 import java.io.IOException;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
-import java.util.Arrays;
-import java.util.Date;
-import java.util.List;
-import java.util.Objects;
+import java.util.*;
 
 @Slf4j
 @Component
@@ -85,14 +82,21 @@ public class ReportAsync {
             WordUtil.setParagraphText(document, "【主序列】步骤详情 End");
             WordUtil.setBreak(document);
 
-            for (String sequenceId : childSequenceId) {
-                //表格上方文字
-                WordUtil.setParagraphText(document, "【子序列】步骤详情");
-                //设置表格表头
-                XWPFTable childTable = WordUtil.setTableHeader(document);
-                CreateWord.word(childTable, cacheService.getStepVariable(sequenceId), Objects.requireNonNull(mongoTemplate.findById(sequenceId, TestSequence.class)).getSequenceName());
-                WordUtil.setParagraphText(document, "【子序列】步骤详情 End");
-                WordUtil.setBreak(document);
+            Set<String> processedIds = new HashSet<>(childSequenceId); // 使用 HashSet 追踪已处理的 ID
+            int index = 0;
+            while (index < childSequenceId.size()) {
+                String sequenceId = childSequenceId.get(index);
+                if (!processedIds.contains(sequenceId)) {
+                    TestSequence childSequence = mongoTemplate.findById(sequenceId, TestSequence.class);
+                    WordUtil.setParagraphText(document, "【" + childSequence.getSequenceName() + "子序列】步骤详情");
+                    XWPFTable childTable = WordUtil.setTableHeader(document);
+                    List<String> newIds = CreateWord.word(childTable, cacheService.getStepVariable(sequenceId), Objects.requireNonNull(childSequence).getSequenceName());
+                    childSequenceId.addAll(newIds);
+                    processedIds.addAll(newIds); // 添加新的 ID 到已处理集合
+                    WordUtil.setParagraphText(document, "【" + childSequence.getSequenceName() + "子序列】步骤详情 End");
+                    WordUtil.setBreak(document);
+                }
+                index++;
             }
 
             Date date = new Date();

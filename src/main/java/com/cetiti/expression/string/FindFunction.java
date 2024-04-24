@@ -58,7 +58,7 @@ public class FindFunction extends AbstractVariadicFunction {
         Map<String, Object> env = new HashMap<>();
 
 
-        String expression = "Find('asdfghjkl','fgh',1)";
+        String expression = "Find('abcdefg','def',0,False,False)";
         System.out.println(AviatorEvaluator.execute(expression, env));
     }
 

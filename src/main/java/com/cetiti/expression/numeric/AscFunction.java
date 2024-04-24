@@ -18,18 +18,12 @@ public class AscFunction extends AbstractFunction {
 
     @Override
     public AviatorObject call(Map<String, Object> env, AviatorObject arg1) {
-
-        if (arg1 instanceof AviatorString) {
-            String str = FunctionUtils.getStringValue(arg1, env);
-            if (str.length() > 0) {
-                return AviatorLong.valueOf(str.charAt(0));
-            } else {
-                // 处理空字符串的情况
-                return AviatorLong.valueOf(0);
-            }
+        String str = FunctionUtils.getStringValue(arg1, env);
+        if (str != null && !str.isEmpty()) {
+            int codePoint = str.codePointAt(0);
+            return AviatorLong.valueOf(codePoint);
         } else {
-            // 处理参数类型不匹配的情况
-            throw new IllegalArgumentException("The Asc function only accepts a string as its argument.");
+            throw new IllegalArgumentException("String is empty or null");
         }
     }
 
@@ -37,8 +31,8 @@ public class AscFunction extends AbstractFunction {
         AviatorEvaluator.addFunction(new AscFunction());
 
         Map<String, Object> env = new HashMap<>();
-
-        String expression = "Asc('a.3')";
+        env.put("name","asdg");
+        String expression = "Asc(name)";
         System.out.println(AviatorEvaluator.execute(expression, env));
     }
 }

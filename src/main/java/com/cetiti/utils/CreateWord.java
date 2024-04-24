@@ -6,6 +6,7 @@ import com.cetiti.config.MongoConfig;
 import com.cetiti.constant.*;
 import com.cetiti.entity.StepAdditional;
 import com.cetiti.entity.StepVariable;
+import com.cetiti.entity.TestSequence;
 import com.cetiti.entity.step.ActionStep;
 import com.cetiti.entity.step.StepBase;
 import com.cetiti.entity.step.TestStep;
@@ -283,7 +284,7 @@ public class CreateWord {
                 if (resultRecordStatus == 0) {
                     if (loopFlag) {
                         forLoop(table, stepVariable2, stepName, stepBase);
-                        addExtraResults(table, stepBase.getStepAdditionalList(), stepVariable);
+                        addExtraResults(table, stepBase.getStepAdditionalList(), stepVariable, stepVariable2);
                     } else {
                         if (Objects.equals(type, "N_TEST")) {
                             String subType = stepVariable2.getValueByPath("TestStepType");
@@ -394,6 +395,9 @@ public class CreateWord {
                         } else if (Objects.equals(type, "N_SEQUENCE_CALL")) {
                             TableUtil.createRowAndFill(table, 1000, Arrays.asList(stepName, DateUtils.localDate2LongString(LocalDateTime.now())));
                             TableUtil.fillTableData(table, StepStatus.getDescByCode(status));
+                            String childTestSequenceId = stepVariable2.getValueByPath("childTestSequenceId");
+                            TestSequence byId = mongoTemplate.findById(childTestSequenceId, TestSequence.class);
+                            TableUtil.createRowAndMergeFill(table, 500, 0, 7, Collections.singletonList(byId.getSequenceName()));
                         } else if (Objects.equals(type, "N_STATEMENT")) {
                             String expression = stepVariable2.getValueByPath("Expression");
                             TableUtil.createRowAndFill(table, 1000, Arrays.asList(stepName, DateUtils.localDate2LongString(LocalDateTime.now())));
@@ -429,10 +433,9 @@ public class CreateWord {
                                 TableUtil.createRowAndMergeFill(table, 1500, 0, 7, Arrays.asList("Do While", flowNo + condition, DateUtils.localDate2LongString(LocalDateTime.now())));
                             }
                         }
-                        addExtraResults(table, stepBase.getStepAdditionalList(), stepVariable);
+                        addExtraResults(table, stepBase.getStepAdditionalList(), stepVariable, stepVariable2);
                     }
                 }
-
             }
         }
         return idList;
@@ -621,7 +624,7 @@ public class CreateWord {
         TableUtil.fillTableData(table, String.valueOf(failed));
     }
 
-    private static void addExtraResults(XWPFTable table, List<StepAdditional> stepAdditionalList, StepVariable stepVariable) {
+    private static void addExtraResults(XWPFTable table, List<StepAdditional> stepAdditionalList, StepVariable stepVariable, StepVariable step) {
         if (CollectionUtils.isEmpty(stepAdditionalList)) {
             return;
         }
@@ -634,7 +637,7 @@ public class CreateWord {
         }
         StringBuilder sb = new StringBuilder();
         stepAdditionalList.stream().filter(stepAdditional -> !stepAdditional.getIsGraphs()).forEach(i -> {
-            Object valueByPath = stepVariable.getValueByPath("ExtraResults." + i.getId());
+            Object valueByPath = step.getValueByPath("ExtraResults." + i.getId());
             sb.append(valueByPath.toString());
             sb.append("\n");
         });

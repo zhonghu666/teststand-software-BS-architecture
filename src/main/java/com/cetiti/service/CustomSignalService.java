@@ -16,8 +16,18 @@ public interface CustomSignalService {
 
     /**
      * 表达式解析
+     *
      * @param request
      * @return
      */
     BracketValidationResponse parseCustomSignal(CustomSignalParesRequest request);
+
+    /**
+     * 删除自定义表达式池数据
+     *
+     * @param name 表达式名称
+     * @param uuid  数据回放id
+     * @return
+     */
+    Boolean removeCustomSignal(String name, String uuid);
 }

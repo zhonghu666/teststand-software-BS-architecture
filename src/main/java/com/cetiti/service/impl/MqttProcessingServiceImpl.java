@@ -231,6 +231,7 @@ public class MqttProcessingServiceImpl implements MqttProcessingService {
     public void parseCustomSignal(String topic, String msg) {
         String uuid = StringUtils.substringAfterLast(topic, "/");
         if (!redisUtil.hasKey(uuid + "parseCustomSignal")) {
+            log.info("自定义信号:{},表达式池为空");
             return;
         }
         try {
@@ -238,7 +239,10 @@ public class MqttProcessingServiceImpl implements MqttProcessingService {
             Map<String, Object> info = new HashMap<>();
             Map<String, Object> map = mapper.readValue(msg, new TypeReference<Map<String, Object>>() {
             });
-            List<CustomSignalParesRequest> customSignalParesRequests = redisUtil.lGet(uuid + "parseCustomSignal", 0, -1, CustomSignalParesRequest.class);
+            if (map.size() < 2) {
+                return;
+            }
+            List<CustomSignalParesRequest> customSignalParesRequests = redisUtil.hGetAll(uuid + "parseCustomSignal", CustomSignalParesRequest.class);
             customSignalParesRequests.forEach(i -> {
                 Object response = null;
                 try {

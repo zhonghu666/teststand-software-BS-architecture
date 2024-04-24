@@ -62,7 +62,7 @@ public class SetElementsFunction extends AbstractVariadicFunction {
 
         env.put("array", Arrays.asList("22", "33", "44", "77", "88"));
 
-        String expression = "SetElements(array, 'xx','[0..1]')";
+        String expression = "SetElements(array, 'xx','[0..3]')";
         System.out.println(AviatorEvaluator.execute(expression, env));
 
         System.out.println(env.get("array"));

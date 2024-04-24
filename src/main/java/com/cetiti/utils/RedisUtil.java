@@ -335,6 +335,21 @@ public class RedisUtil {
         return redisTemplate.opsForHash().increment(key, item, -by);
     }
 
+    /**
+     * 获取哈希表中的所有值
+     *
+     * @param key 键
+     * @return 哈希表中所有的值，如果没有数据返回空列表
+     */
+    public <T> List<T> hGetAll(String key, Class<T> type) {
+        List<Object> values = redisTemplate.opsForHash().values(key);
+        return values.stream()
+                .filter(Objects::nonNull)
+                .map(type::cast)
+                .collect(Collectors.toList());
+    }
+
+
     // ============================set=============================
 
     /**
@@ -669,7 +684,7 @@ public class RedisUtil {
         return Long.parseLong(o.toString());
     }
 
-    public long deleteKeysByPattern( String pattern) {
+    public long deleteKeysByPattern(String pattern) {
         Set<String> keys = redisTemplate.keys(pattern);
         if (!keys.isEmpty()) {
             return redisTemplate.delete(keys);

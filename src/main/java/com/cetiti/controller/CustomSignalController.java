@@ -7,10 +7,7 @@ import com.cetiti.response.BracketValidationResponse;
 import com.cetiti.service.CustomSignalService;
 import io.swagger.annotations.Api;
 import io.swagger.annotations.ApiOperation;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 
 import javax.annotation.Resource;
 
@@ -32,5 +29,11 @@ public class CustomSignalController {
     @PostMapping("parse")
     public BaseJson<BracketValidationResponse> parseCustomSignal(@RequestBody CustomSignalParesRequest request) {
         return new BaseJson<BracketValidationResponse>().Success(customSignalService.parseCustomSignal(request));
+    }
+
+    @ApiOperation(value = "删除自定义表达式池数据")
+    @GetMapping("removeCustomSignal")
+    public BaseJson<Boolean> removeCustomSignal(@RequestParam(required = false) String name, @RequestParam(required = false) String uuid) {
+        return new BaseJson<Boolean>().Success(customSignalService.removeCustomSignal(name, uuid));
     }
 }

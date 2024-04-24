@@ -170,11 +170,11 @@ public class ActionStep extends StepBase {
                         switch (action) {
                             case 1:
                                 String startSaveParam = "esn=" + esn;
-                                rest.getResultFromApi(restPathConfig.getArtificial() + "/equ/config/dataRecorder/startSave", null, startSaveParam, HttpMethod.POST, null);
+                                rest.getResultFromApi(restPathConfig.getAnalysis() + "/equ/config/dataRecorder/startSave", null, startSaveParam, HttpMethod.POST, null);
                                 break;
                             case 2:
                                 String endSaveParam = "esn=" + esn;
-                                rest.getResultFromApi(restPathConfig.getArtificial() + "/equ/config/dataRecorder/stopSave", null, endSaveParam, HttpMethod.POST, null);
+                                rest.getResultFromApi(restPathConfig.getAnalysis() + "/equ/config/dataRecorder/stopSave", null, endSaveParam, HttpMethod.POST, null);
                                 break;
                             case 3:
                                 String siteId = (String) pram.get("siteId");
@@ -217,7 +217,7 @@ public class ActionStep extends StepBase {
                         cacheService.saveOrUpdateStepVariable(testSequenceId, stepVariable2);
                         MqttProcessingService mqttProcessingService = ApplicationContextHolder.getBean(MqttProcessingService.class);
                         if (!mqttProcessingService.waitForResponse(uuid)) {
-                            step = StepVariable.RESULT_Fail(StepStatus.ERROR);
+                            step = StepVariable.RESULT_Fail(StepStatus.ERROR, "数据预置超时");
                         }
                         break;
                     case 2:

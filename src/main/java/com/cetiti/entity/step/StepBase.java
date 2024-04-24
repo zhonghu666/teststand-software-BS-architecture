@@ -115,6 +115,13 @@ public abstract class StepBase implements Serializable {
     @JsonSerialize(using = LocalDateTimeSerializer.class)
     private LocalDateTime createTime;
 
+    /**
+     * 步骤执行基本方法-入口逻辑处理通用属性相关逻辑
+     *
+     * @param cacheService 缓存服务
+     * @param pram         部分步骤所需入参
+     * @return
+     */
     public final StepVariable execute(CacheService cacheService, Map<String, Object> pram) {
         StepVariable step = new StepVariable();
         StepVariable stepVariable = cacheService.getStepVariable(testSequenceId);
@@ -163,7 +170,7 @@ public abstract class StepBase implements Serializable {
             step.addNestedAttribute("type", type, "步骤类型");
         } catch (Exception e) {
             log.error("步骤:{}执行异常", id, e);
-            step = StepVariable.RESULT_Fail(StepStatus.ERROR);
+            step = StepVariable.RESULT_Fail(StepStatus.ERROR, e.getMessage());
             if (Objects.equals(tryCatchStatus, 0)) {
                 step.addNestedAttribute("Result.Error.Occurred", false, "Occurred");
             }
@@ -175,10 +182,6 @@ public abstract class StepBase implements Serializable {
                     stepVariable.addNestedAttribute("RunState.SequenceError.code", ErrorCode.SUCCESS.getCode(), "SequenceErrorCode");
                     stepVariable.addNestedAttribute("RunState.SequenceError.Msg", ErrorCode.SUCCESS.getDesc(), "SequenceErrorCode");
                     stepVariable.addNestedAttribute("RunState.SequenceError.Occurred", ErrorCode.SUCCESS.getOccurred(), "SequenceErrorCode");
-                    stepVariable.addNestedAttribute("RunState.SequenceStatus", StepStatus.PASSED.getCode(), "SequenceStatus");
-                } else if (tryCatchStatus == null || (Objects.equals(tryCatchStatus, 1)) && statusCode.equals(StepStatus.ERROR.getCode())) {
-                    StepVariable error = step.getValueByPath("Result.Error");
-                    stepVariable.addNestedAttribute("RunState.SequenceError", error, null);
                     stepVariable.addNestedAttribute("RunState.SequenceStatus", StepStatus.PASSED.getCode(), "SequenceStatus");
                 } else {
                     StepVariable error = step.getValueByPath("Result.Error");

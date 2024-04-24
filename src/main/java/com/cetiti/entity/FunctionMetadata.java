@@ -5,7 +5,6 @@ import lombok.Data;
 import org.springframework.data.mongodb.core.mapping.Document;
 
 import java.io.Serializable;
-import java.util.List;
 
 @Data
 @Document("FunctionMetadata")
@@ -20,8 +19,14 @@ public class FunctionMetadata implements Serializable {
     @ApiModelProperty("函数名称")
     private String functionName;
 
-    @ApiModelProperty("参数数量")
-    private int paramCount;
+    @ApiModelProperty("参数数量下限")
+    private int paramCountLow;
+
+    @ApiModelProperty("参数数量上限")
+    private int paramCountHig;
+
+    @ApiModelProperty("返回类型")
+    private String returnType;
 
     @ApiModelProperty("模版")
     private String template;

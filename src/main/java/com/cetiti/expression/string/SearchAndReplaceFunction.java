@@ -11,64 +11,64 @@ import java.util.Map;
 
 public class SearchAndReplaceFunction extends AbstractVariadicFunction {
     @Override
+    public String getName() {
+        return "SearchAndReplace";
+    }
+
+    @Override
     public AviatorObject variadicCall(Map<String, Object> env, AviatorObject... args) {
         String string = FunctionUtils.getStringValue(args[0], env);
         String searchString = FunctionUtils.getStringValue(args[1], env);
         String replacementString = FunctionUtils.getStringValue(args[2], env);
-        int startIndex = FunctionUtils.getNumberValue(args[3], env).intValue();
-        boolean ignoreCase = FunctionUtils.getBooleanValue(args[4], env);
-        int maxReplacements = FunctionUtils.getNumberValue(args[5], env).intValue();
-        boolean searchInReverse = FunctionUtils.getBooleanValue(args[6], env);
-//        int numReplacements = FunctionUtils.getNumberValue(args[7], env).intValue();
+
+        int startIndex = args.length > 3 ? FunctionUtils.getNumberValue(args[3], env).intValue() : 0;
+        boolean ignoreCase = args.length > 4 && FunctionUtils.getBooleanValue(args[4], env);
+        int maxReplacements = args.length > 5 ? FunctionUtils.getNumberValue(args[5], env).intValue() : -1;
+        boolean searchInReverse = args.length > 6 && FunctionUtils.getBooleanValue(args[6], env);
 
         int numReplacements = 0;
         String result = string;
 
         if (searchInReverse) {
-            result = reverseString(result);
-//            startIndex = result.length() - startIndex - 1;
+            result = new StringBuilder(result).reverse().toString();
+            startIndex = result.length() - startIndex - 1;
         }
 
         int index = startIndex;
         int count = 0;
 
-        while (index >= 0 && index < result.length()) {
-            index = ignoreCase ? result.toLowerCase().indexOf(searchString.toLowerCase(), index) : result.indexOf(searchString, index);
+        while (index >= 0 && index < result.length() && (maxReplacements == -1 || count < maxReplacements)) {
+            index = findIndex(result, searchString, index, ignoreCase);
             if (index == -1) {
                 break;
             }
 
             result = result.substring(0, index) + replacementString + result.substring(index + searchString.length());
-            index += replacementString.length();
+            index += replacementString.length(); // Move past the replacement
             count++;
-            numReplacements++;
-
-            if (maxReplacements > 0 && count >= maxReplacements) {
-                break;
-            }
         }
+
+        numReplacements = count;
 
         if (searchInReverse) {
-            result = reverseString(result);
+            result = new StringBuilder(result).reverse().toString();
         }
 
-        env.put("numReplacements", numReplacements);
+        if (args.length > 7) {
+            env.put(args[7].stringValue(env), numReplacements); // Optionally store the number of replacements
+        }
+
         return new AviatorString(result);
     }
 
-    private String reverseString(String string) {
-        return new StringBuilder(string).reverse().toString();
-    }
-
-    @Override
-    public String getName() {
-        return "SearchAndReplace";
+    private int findIndex(String source, String target, int fromIndex, boolean ignoreCase) {
+        return ignoreCase ? source.toLowerCase().indexOf(target.toLowerCase(), fromIndex) : source.indexOf(target, fromIndex);
     }
 
     public static void main(String[] args) {
         AviatorEvaluator.addFunction(new SearchAndReplaceFunction());
         String string = "Hello,World!";
-        String searchString = "O";
+        String searchString = "W";
         String replacementString = "tt";
         int startIndex = 0;
         boolean ignoreCase = true;
@@ -81,16 +81,16 @@ public class SearchAndReplaceFunction extends AbstractVariadicFunction {
         env.put("searchString", searchString);
         env.put("replacementString", replacementString);
         env.put("startIndex", startIndex);
-        env.put("ignoreCase", ignoreCase);
-        env.put("maxReplacements", maxReplacements);
-        env.put("searchInReverse", searchInReverse);
-        env.put("numReplacements", numReplacements);
+      //  env.put("ignoreCase", ignoreCase);
+       // env.put("maxReplacements", maxReplacements);
+      //  env.put("searchInReverse", searchInReverse);
+//env.put("numReplacements", numReplacements);
 
-        String result = (String) AviatorEvaluator.execute("SearchAndReplace(string, searchString, replacementString, startIndex, ignoreCase, maxReplacements, searchInReverse, numReplacements)", env);
-        int replacements = (int) env.get("numReplacements");
+        String result = (String) AviatorEvaluator.execute("SearchAndReplace(string, searchString, replacementString,startIndex)", env);
+        //int replacements = (int) env.get("numReplacements");
 
         System.out.println("Result: " + result);
-        System.out.println("Number of replacements: " + replacements);
+        //System.out.println("Number of replacements: " + replacements);
     }
 
 

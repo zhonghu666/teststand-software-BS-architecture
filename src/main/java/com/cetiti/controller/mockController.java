@@ -261,10 +261,9 @@ public class mockController {
 
     @PostMapping("test4")
     public void test4(@RequestBody String s) {
-        TestSequence byId = mongoTemplate.findById(s, TestSequence.class);
-        StepVariable stepVariable = byId.getStepVariable();
-        Object valueByPath = stepVariable.getValueByPath("RunState.SequenceFile.Data.Seq.test_for.Main.End[58b9fce4-eae5-4e98-9d8e-e4d34277d65b].endType");
-        System.out.println(JSON.toJSON(valueByPath));
+        BracketValidationResponse bracketValidationResponse = new BracketValidationResponse();
+        GrammarCheckUtils.processExpression(s, cacheService, bracketValidationResponse);
+        System.out.println(JSON.toJSON(bracketValidationResponse));
     }
 
     @GetMapping("mockToken")
@@ -289,8 +288,14 @@ public class mockController {
         @ExcelImport("函数名称")
         private String functionName;
 
-        @ExcelImport("参数数量")
-        private int paramCount;
+        @ExcelImport("参数数量下限")
+        private int paramCountLow;
+
+        @ExcelImport("参数数量上限")
+        private int paramCountHig;
+
+        @ExcelImport("返回类型")
+        private String returnType;
 
         @ExcelImport("模版")
         private String template;

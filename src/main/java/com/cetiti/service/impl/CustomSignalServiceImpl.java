@@ -82,8 +82,18 @@ public class CustomSignalServiceImpl implements CustomSignalService {
     public BracketValidationResponse parseCustomSignal(CustomSignalParesRequest request) {
         BracketValidationResponse bracketValidationResponse = testSequenceService.checkExpressionSyntax(request.getExpression());
         if (!bracketValidationResponse.isValid()) {
-            redisUtil.lSet(request.getUuid() + "parseCustomSignal", request);
+            redisUtil.hset(request.getUuid() + "parseCustomSignal", request.getName(), request, 3600);
         }
         return bracketValidationResponse;
+    }
+
+    @Override
+    public Boolean removeCustomSignal(String name, String uuid) {
+        if (uuid != null) {
+            redisUtil.del(uuid + "parseCustomSignal");
+        } else {
+            redisUtil.hdel(uuid + "parseCustomSignal", name);
+        }
+        return true;
     }
 }

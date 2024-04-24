@@ -11,7 +11,9 @@ import com.cetiti.entity.StepVariable;
 import com.cetiti.expression.array.ContainsFunction;
 import com.cetiti.expression.array.GetArrayBoundsFunction;
 import com.cetiti.expression.array.GetNumElementsFunction;
+import com.cetiti.expression.numeric.AscFunction;
 import com.cetiti.expression.numeric.CalculateRelativeDistance;
+import com.cetiti.expression.string.SplitFunction;
 import com.cetiti.service.impl.CacheService;
 import com.googlecode.aviator.AviatorEvaluator;
 import com.googlecode.aviator.Expression;
@@ -99,7 +101,7 @@ public class ExpressionParserUtils {
                     Map<String, Object> map = expressionParsingExecution(expressionValue, stepVariable, cacheService, testSequenceId);
                     result = map.get("result");
                     Object currentValue = stepVariable.getValueByPath(variablePath);
-                    if (currentValue instanceof Number) {
+                    if (currentValue instanceof Number && !(result instanceof List)) {
                         Number currentNumber = (Number) currentValue;
                         Number resultNumber = (Number) result;
                         if (result != null) {
@@ -202,11 +204,18 @@ public class ExpressionParserUtils {
         }
     }
 
+    /**
+     * 表达式内变量提取并从变量树中取值
+     *
+     * @param expression
+     * @param stepVariable
+     * @param cacheService
+     * @param testSequenceId
+     * @return
+     */
     private static Map<String, Object> replacePatternsWithValues(String expression, StepVariable stepVariable, CacheService cacheService, String testSequenceId) {
         List<String> tokens = new ArrayList<>();
         int index = 0;
-        // List<String> functionName = getFunctionName(cacheService);
-        List<String> functionName = Arrays.asList("GetArrayBounds", "Contains", "GetNumElements", "CalculateRelativeDistance", "math.pow", "math.abs", "math.sqrt");
         while (index < expression.length()) {
             char currentChar = expression.charAt(index);
             // 检查是否是字符串字面量的开始
@@ -263,11 +272,20 @@ public class ExpressionParserUtils {
     }
 
 
+    /**
+     * 表达式预处理-用于处理函数嵌套，数组调用
+     *
+     * @param expression
+     * @param stepVariable
+     * @param cacheService
+     * @param testSequenceId
+     * @return
+     */
     private static String preprocessingExpression(String expression, StepVariable stepVariable, CacheService cacheService, String testSequenceId) {
         Pattern bracketPattern = Pattern.compile("\\[([^\\]]+)\\]");
         Matcher bracketMatcher = bracketPattern.matcher(expression);
         //List<String> functionName = getFunctionName(cacheService);
-        List<String> functionName = Arrays.asList("GetArrayBounds", "Contains", "GetNumElements", "CalculateRelativeDistance", "math.pow", "math.abs", "math.sqrt");
+        List<String> functionName = Arrays.asList("GetArrayBounds", "Contains", "GetNumElements", "CalculateRelativeDistance", "math.pow", "math.abs", "math.sqrt", "Split");
         while (bracketMatcher.find()) {
             String bracketExpression = bracketMatcher.group(1);
             Object result;
@@ -284,6 +302,12 @@ public class ExpressionParserUtils {
         return expression;
     }
 
+    /**
+     * 表达式处理-把变量的.换成_用于后续的解析器使用
+     *
+     * @param variableName
+     * @return
+     */
     private static String convertVariableName(String variableName) {
         String regexDots = "(?<!\\d)\\.(?!(abs|sin|cos|tan|log|log10|pow|round|asin|acos|atan|sqrt|split|\\w+)\\()(?!\\d)";
         variableName = variableName.replaceAll(regexDots, "_");
@@ -298,8 +322,8 @@ public class ExpressionParserUtils {
         step.addNestedAttribute("Locals.Data.BSM.id", "123456", "id");
         step.addNestedAttribute("Locals.Data.BSM.status", true, "status");
         step.addNestedAttribute("Locals.Data.BSM.speed", 1233, "speed");
-        step.addNestedAttribute("Locals.Data.BSM.links", Arrays.asList("101", "102", "103"), "links");
-        step.addNestedAttribute("Locals.Data.RSI.uuid", "878777", "uuid");
+        step.addNestedAttribute("Locals.Data.BSM.links", Arrays.asList("2"), "links");
+        step.addNestedAttribute("Locals.Data.RSI.uuid", "dasdas", "uuid");
         step.addNestedAttribute("Locals.Data.RSI.status", false, "status");
         step.addNestedAttribute("Locals.Data.RSI.xd", -321, "xd");
         step.addNestedAttribute("Locals.Data.RSI.non", Arrays.asList(1, 2, 3, 4, 5), "non");
@@ -307,6 +331,9 @@ public class ExpressionParserUtils {
         step.addNestedAttribute("Locals.Data.lon", "116.48984595333", "");
         step.addNestedAttribute("Locals.Data.lat", "39.73028018521", "");
         step.addNestedAttribute("Locals.Data.speed", "31", "");
+        step.addNestedAttribute("Locals.num1", "11", "");
+        step.addNestedAttribute("Locals.num2", "2", "");
+        step.addNestedAttribute("Locals.num3", "2", "");
         step.addNestedAttribute("RunState_LoopNumPassed", 4, "");
         step.addNestedAttribute("RunState_LoopNumIterations", 10, "");
         StepVariable s1 = new StepVariable();
@@ -330,12 +357,11 @@ public class ExpressionParserUtils {
         AviatorEvaluator.addFunction(new CalculateRelativeDistance());
         AviatorEvaluator.addFunction(new GetNumElementsFunction());
         AviatorEvaluator.addFunction(new GetArrayBoundsFunction());
+        AviatorEvaluator.addFunction(new SplitFunction());
+        AviatorEvaluator.addFunction(new AscFunction());
         //String expression = "CalculateRelativeDistance(list.[GetNumElements(list)-1].hv_lat,list.[GetNumElements(list)-1].hv_lon,Locals.Data.lat,Locals.Data.lon)";
         //String expression = "Locals.Data.BSM.speed";
-        //String expression = "dasa";
-        //replacePatternsWithValues(expression, step, null, null);
-        // String expression = "RunState_LoopNumPassed + RunState_LoopNumIterations=30";
-        //String expression = "Locals.Data.lat";
+        String expression = "Asc(Locals.Data.RSI.uuid)";
         //currencyExecution(expression, step, null, "121");
         //Object valueByPath = step.getValueByPath("Locals.Data.BSM.speed");
         //System.out.println(valueByPath);
@@ -347,16 +373,10 @@ public class ExpressionParserUtils {
         //splitExpression(expression);
         /*   Object execute = AviatorEvaluator.execute("1 & 1");
         System.out.println(execute);*/
-      /*   Map<String, Object> stringObjectMap = expressionParsingExecution(expression, step, null, "121");
-        System.out.println(stringObjectMap);*/
+        Map<String, Object> stringObjectMap = expressionParsingExecution(expression, step, null, "121");
+        System.out.println(stringObjectMap);
         //List<Object> allFinalValues = step.fetchAllFinalValues();
         //System.out.println(allFinalValues);
-        String expression = "math.abs(math.sqrt(math.pow(Locals.data.[RunState.LoopIndex].HV_northSpeed,2,2)+\n" +
-                "math.pow(Locals.data.[RunState.LoopIndex].HV_eastSpeed,2))-Locals.data.[RunState.LoopIndex].RV_speed)";
-        expression = convertVariableName(expression);
-        Expression compiledExpr = AviatorEvaluator.compile(expression, true);
-
-        System.out.println(JSON.toJSON(compiledExpr));
     }
 
     private static ScriptEngine engine = new ScriptEngineManager().getEngineByName("nashorn");
@@ -367,7 +387,7 @@ public class ExpressionParserUtils {
     }
 
     /**
-     * 循环控制
+     * 循环控制 自旋循环表达式解析及执行
      *
      * @param circularConfig
      * @param cacheService
@@ -418,6 +438,15 @@ public class ExpressionParserUtils {
         }
     }
 
+    /**
+     * 循环变量获取
+     *
+     * @param conditionExpression
+     * @param stepVariable
+     * @param cacheService
+     * @param testSequenceId
+     * @return
+     */
     private static Map<String, String> setVariablesFromCondition(String conditionExpression, StepVariable stepVariable, CacheService cacheService, String testSequenceId) {
         Pattern pattern = Pattern.compile("\\b([a-zA-Z_][a-zA-Z0-9_]*(\\.[a-zA-Z_][a-zA-Z0-9_]*)*)\\b");
         Matcher matcher = pattern.matcher(conditionExpression);
@@ -471,6 +500,15 @@ public class ExpressionParserUtils {
         return functionName;
     }
 
+    /**
+     * 解析得到实际执行表达式-用于报告展示
+     *
+     * @param expression
+     * @param stepVariable
+     * @param cacheService
+     * @param testSequenceId
+     * @return
+     */
     public static String getCondition(String expression, StepVariable stepVariable, CacheService cacheService, String testSequenceId) {
         expression = expression.replaceAll("\\s+", "");
         expression = preprocessingExpression(expression, stepVariable, cacheService, testSequenceId);

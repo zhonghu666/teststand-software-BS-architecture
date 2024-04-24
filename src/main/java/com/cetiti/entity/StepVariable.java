@@ -247,10 +247,10 @@ public class StepVariable implements Serializable {
         return step;
     }
 
-    public static StepVariable RESULT_Fail(StepStatus status) {
+    public static StepVariable RESULT_Fail(StepStatus status, String errorMsg) {
         StepVariable step = new StepVariable();
         step.addNestedAttribute("Result.Error.Code", ErrorCode.COMMON_FAIL.getCode(), "code");
-        step.addNestedAttribute("Result.Error.Msg", ErrorCode.COMMON_FAIL.getDesc(), "Msg");
+        step.addNestedAttribute("Result.Error.Msg", errorMsg, "Msg");
         step.addNestedAttribute("Result.Error.Occurred", ErrorCode.COMMON_FAIL.getOccurred(), "Occurred");
         step.addNestedAttribute("Result.Status", status.getCode(), "Status");
         step.addNestedAttribute("Result.ReportTest", "", "ReportTest");
@@ -407,6 +407,7 @@ public class StepVariable implements Serializable {
             }
         }
     }
+
     public boolean removeAttributeByPath(String path) {
         if (path == null || path.isEmpty()) {
             return false;

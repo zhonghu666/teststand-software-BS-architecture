@@ -5,30 +5,33 @@ import com.googlecode.aviator.runtime.function.AbstractVariadicFunction;
 import com.googlecode.aviator.runtime.function.FunctionUtils;
 import com.googlecode.aviator.runtime.type.AviatorLong;
 import com.googlecode.aviator.runtime.type.AviatorObject;
+import com.googlecode.aviator.runtime.type.AviatorRuntimeJavaType;
 
+import java.time.Instant;
+import java.time.temporal.ChronoUnit;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
 
 public class SecondsFunction extends AbstractVariadicFunction {
+
+    private static final Instant appStartTime = Instant.now(); // Capture the start time when the class is loaded
+
     @Override
     public AviatorObject variadicCall(Map<String, Object> env, AviatorObject... args) {
-        boolean returnSecondsSinceStartup = true;
-        if (args.length > 0) {
-            returnSecondsSinceStartup = FunctionUtils.getBooleanValue(args[0], env);
+        boolean useEpoch = false; // Default to using application start time
+
+        if (args != null && args.length > 0) {
+            useEpoch = FunctionUtils.getBooleanValue(args[0], env);
         }
 
-        long seconds;
-        if (returnSecondsSinceStartup) {
-            //todo 如果传递默认参数True，或者不传递参数，该函数将返回应用程序初始化TestStand Engine以来的秒数
-            long startTime = System.currentTimeMillis(); // Replace with your actual base time
-            long currentTime = System.currentTimeMillis();
-            long elapsedTime = currentTime - startTime;
-            seconds = TimeUnit.MILLISECONDS.toSeconds(elapsedTime);
+        long elapsedSeconds;
+        if (useEpoch) {
+            elapsedSeconds = ChronoUnit.SECONDS.between(Instant.EPOCH, Instant.now());
         } else {
-            long currentTime = System.currentTimeMillis();
-            seconds = TimeUnit.MILLISECONDS.toSeconds(currentTime);
+            elapsedSeconds = ChronoUnit.SECONDS.between(appStartTime, Instant.now());
         }
-        return AviatorLong.valueOf(seconds);
+
+        return AviatorRuntimeJavaType.valueOf(elapsedSeconds);
     }
 
     @Override
@@ -45,5 +48,7 @@ public class SecondsFunction extends AbstractVariadicFunction {
         expression = "Seconds(false)";
         System.out.println(AviatorEvaluator.execute(expression));
 
+        expression = "Seconds(true)";
+        System.out.println(AviatorEvaluator.execute(expression));
     }
 }

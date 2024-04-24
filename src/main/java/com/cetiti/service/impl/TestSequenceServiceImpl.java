@@ -291,7 +291,7 @@ public class TestSequenceServiceImpl implements TestSequenceService {
         if (StepStatus.PASSED.getCode().equals(runStatus)) {
             step = StepVariable.RESULT_SUCCESS(StepStatus.DONE);
         } else {
-            step = StepVariable.RESULT_Fail(StepStatus.FAILED);
+            step = StepVariable.RESULT_Fail(StepStatus.FAILED, "");
         }
         mainStep.addNestedAttribute(stepPath, step, stepBase.getName());
         cacheService.saveOrUpdateStepVariable(stepBase.getTestSequenceId(), mainStep);

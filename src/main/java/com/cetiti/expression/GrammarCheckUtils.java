@@ -24,7 +24,7 @@ public class GrammarCheckUtils {
             "Globals",
             "SequenceData"
     );
-    private static final Set<String> VALID_BRACKETS = new HashSet<>(Arrays.asList("(", ")", "[", "]", "{", "}",",","'","'"));
+    private static final Set<String> VALID_BRACKETS = new HashSet<>(Arrays.asList("(", ")", "[", "]", "{", "}", ",", "'", "'"));
 
     /**
      * 检查给字符串是否为参数。
@@ -58,6 +58,7 @@ public class GrammarCheckUtils {
      * 如果在处理表达式的过程中遇到无法匹配的右括号，或者在表达式结束后栈中仍然有未匹配的左括号，我们就可以确定表达式中括号的匹配是不正确的，并且返回相关的位置信息
      * 尝试访问或移除栈（Stack）顶部元素之前，检查栈是否为空。如果栈为空，这意味着遇到了一个没有对应开括号的闭括号。
      * todo 多闭括号判断时，错误括号索引会有错误。
+     *
      * @param expression
      * @param result
      */
@@ -107,7 +108,13 @@ public class GrammarCheckUtils {
         }
     }
 
-    private static List<FunctionMetadata> getFunction(CacheService cacheService) {
+    /**
+     * 获取函数列表
+     *
+     * @param cacheService
+     * @return
+     */
+    public static List<FunctionMetadata> getFunction(CacheService cacheService) {
         List<FunctionMetadata> function = cacheService.getFunctionMetadata("Function");
         if (function == null || function.isEmpty()) {
             MongoTemplate mongoTemplate = ApplicationContextHolder.getBean(MongoConfig.MONGO_TEMPLATE, MongoTemplate.class);
@@ -156,22 +163,26 @@ public class GrammarCheckUtils {
         int functionCounter = 0;
         while (index < expression.length()) {
             int start = index;
-            while (index < expression.length() && !"+-*/=(), ".contains(expression.substring(index, index + 1))) {
+            while (index < expression.length() && !isOperator(expression, index)) {
                 index++;
             }
             if (start != index) {
                 tokens.add(new Token(expression.substring(start, index), start, index - 1));
             }
-            if (index < expression.length() && "+-*/=(),".contains(expression.substring(index, index + 1))) {
-                tokens.add(new Token(expression.substring(index, index + 1), index, index));
-                index++;
+
+            if (index < expression.length() && isOperator(expression, index)) {
+                int len = lengthOfOperator(expression, index);
+                tokens.add(new Token(expression.substring(index, index + len), index, index + len - 1));
+                index += len;
             }
-            while (index < expression.length() && " ".contains(expression.substring(index, index + 1))) {
+
+            while (index < expression.length() && expression.charAt(index) == ' ') {
                 index++;  // Skip spaces
             }
         }
         Stack<Integer> stack = new Stack<>();
         int i = 0;
+        System.out.println(JSON.toJSON(tokens));
         legalVerify(tokens, response, functions);
         while (i < tokens.size()) {
             String token = tokens.get(i).getValue();
@@ -203,24 +214,63 @@ public class GrammarCheckUtils {
         }
     }
 
+    private static boolean isOperator(String expr, int index) {
+        String[] operators = {"=", "+=", "-=", "*=", "/=", "%=", "^=", "&=", "|=", "&&", "||", "==", "!=", "<>", ">=", "<=", ">>", "<<", "+", "-", "*", "/", "%", "^", "&", "|", "~", "++", "--", ">", "<", "!", "(", ")",","};
+        for (String op : operators) {
+            if (index + op.length() <= expr.length() && expr.substring(index, index + op.length()).equals(op)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private static int lengthOfOperator(String expr, int index) {
+        String[] operators = {"=", "+=", "-=", "*=", "/=", "%=", "^=", "&=", "|=", "&&", "||", "==", "!=", "<>", ">=", "<=", ">>", "<<", "+", "-", "*", "/", "%", "^", "&", "|", "~", "++", "--", ">", "<", "!", "(", ")",","};
+        for (String op : operators) {
+            if (index + op.length() <= expr.length() && expr.substring(index, index + op.length()).equals(op)) {
+                return op.length();
+            }
+        }
+        return 1;  // Default case, should not happen
+    }
+
+    /**
+     * 校验表达式是否存在非法字符
+     *
+     * @param tokens
+     * @param response
+     * @param functions
+     */
     private static void legalVerify(List<Token> tokens, BracketValidationResponse response, List<FunctionMetadata> functions) {
         Pattern numberPattern = Pattern.compile("-?\\d+(\\.\\d+)?"); // Pattern for numbers (integer and floating point)
         Pattern identifierPattern = Pattern.compile("[a-zA-Z_]\\w*"); // Pattern for valid identifiers (variable names)
+        Pattern stringPattern = Pattern.compile("\"[^\"]*\"|'[^']*'"); // Pattern for string literals
         for (Token token : tokens) {
             String value = token.getValue();
             if (!isValidPrefix(value)
                     && functions.stream().noneMatch(i -> i.getFunctionName().equals(value)) &&
                     !numberPattern.matcher(value).matches()
                     && !identifierPattern.matcher(value).matches()
-                    &&!VALID_BRACKETS.contains(value)) {
+                    && !VALID_BRACKETS.contains(value)
+                    && !stringPattern.matcher(value).matches()) {
                 System.out.println(value);
                 response.addError("illegal characters " + value, token.getStartPos(), token.getEndPos());
             }
         }
     }
 
-    private static void replaceFunctionWithPlaceholder(List<Token> tokens, int start, int end, String
-            placeholder,
+    /**
+     * 校验函数内参数个数是否匹配，入参数据类型是否匹配
+     *
+     * @param tokens
+     * @param start
+     * @param end
+     * @param placeholder
+     * @param functionMetadataMap
+     * @param operatorMap
+     * @param response
+     */
+    private static void replaceFunctionWithPlaceholder(List<Token> tokens, int start, int end, String placeholder,
                                                        Map<String, FunctionMetadata> functionMetadataMap,
                                                        Map<String, FunctionMetadata> operatorMap,
                                                        BracketValidationResponse response) {
@@ -255,9 +305,9 @@ public class GrammarCheckUtils {
         if (functionMetadataMap.containsKey(functionName.getValue())) {
             FunctionMetadata functionMetadata = functionMetadataMap.get(functionName.getValue());
             int paramCount = flag ? 1 : removed.size() - 1;
-            if (functionMetadata.getParamCount() != paramCount) {
+            /*if (functionMetadata.get() != paramCount) {
                 response.addError("Invalid parameter count for " + functionName.getValue(), functionName.getStartPos(), functionName.getEndPos());
-            }
+            }*/
         } else {
             response.addError("Function not defined: " + functionName.getValue(), functionName.getStartPos(), functionName.getEndPos());
         }
