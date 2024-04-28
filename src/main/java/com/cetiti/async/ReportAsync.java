@@ -58,6 +58,7 @@ public class ReportAsync {
      */
     @Async
     public void reportTask(String id, String uuid, String sequenceName, String username, String dataPath) {
+        List<String> childSequenceId = new ArrayList<>();
         try {
             log.info("异步开始.....");
             //缓存
@@ -78,24 +79,20 @@ public class ReportAsync {
             //设置表格表头
             XWPFTable table = WordUtil.setTableHeader(document);
             //创建表格
-            List<String> childSequenceId = CreateWord.word(table, stepVariable, sequenceName);
+            childSequenceId = CreateWord.word(table, stepVariable, sequenceName);
             WordUtil.setParagraphText(document, "【主序列】步骤详情 End");
             WordUtil.setBreak(document);
 
-            Set<String> processedIds = new HashSet<>(childSequenceId); // 使用 HashSet 追踪已处理的 ID
             int index = 0;
             while (index < childSequenceId.size()) {
                 String sequenceId = childSequenceId.get(index);
-                if (!processedIds.contains(sequenceId)) {
-                    TestSequence childSequence = mongoTemplate.findById(sequenceId, TestSequence.class);
-                    WordUtil.setParagraphText(document, "【" + childSequence.getSequenceName() + "子序列】步骤详情");
-                    XWPFTable childTable = WordUtil.setTableHeader(document);
-                    List<String> newIds = CreateWord.word(childTable, cacheService.getStepVariable(sequenceId), Objects.requireNonNull(childSequence).getSequenceName());
-                    childSequenceId.addAll(newIds);
-                    processedIds.addAll(newIds); // 添加新的 ID 到已处理集合
-                    WordUtil.setParagraphText(document, "【" + childSequence.getSequenceName() + "子序列】步骤详情 End");
-                    WordUtil.setBreak(document);
-                }
+                TestSequence childSequence = mongoTemplate.findById(sequenceId, TestSequence.class);
+                WordUtil.setParagraphText(document, "【" + childSequence.getSequenceName() + "子序列】步骤详情");
+                XWPFTable childTable = WordUtil.setTableHeader(document);
+                List<String> newIds = CreateWord.word(childTable, cacheService.getStepVariable(sequenceId), Objects.requireNonNull(childSequence).getSequenceName());
+                childSequenceId.addAll(newIds);
+                WordUtil.setParagraphText(document, "【" + childSequence.getSequenceName() + "子序列】步骤详情 End");
+                WordUtil.setBreak(document);
                 index++;
             }
 
@@ -173,18 +170,17 @@ public class ReportAsync {
         } finally {
             //删除缓存
             //testSequenceService.removeCache(id);
-          /*  cacheService.deleteStepVariable(id);
+            cacheService.deleteStepVariable(id);
             cacheService.deleteStepVariable("SequenceData-" + id);
             redisUtil.del(id + "Main");
-            List<SequenceCallStep> sequenceCallList = mongoTemplate.find(new Query().addCriteria(Criteria.where("testSequenceId").is(id).and("stepType").is("SEQUENCE_CALL")), SequenceCallStep.class);
-            sequenceCallList.forEach(s -> {
-                cacheService.deleteStepVariable(s.getChildTestSequenceId());
-                cacheService.deleteStepVariable("SequenceData-" + s.getChildTestSequenceId());
-                redisUtil.del(s.getChildTestSequenceId() + "Main");
+            childSequenceId.forEach(s -> {
+                cacheService.deleteStepVariable(s);
+                cacheService.deleteStepVariable("SequenceData-" + s);
+                redisUtil.del(s + "Main");
             });
             //删除执行时间
             redisUtil.del(id + ":start");
-            redisUtil.del(id + ":elapsed");*/
+            redisUtil.del(id + ":elapsed");
         }
     }
 }

@@ -19,13 +19,13 @@ public class LengthFunction extends AbstractFunction {
 
     @Override
     public String getName() {
-        return "length";  // The name of the function to be used in expressions
+        return "Len";  // The name of the function to be used in expressions
     }
 
     public static void main(String[] args) {
         AviatorEvaluator.addFunction(new LengthFunction());
         // Now you can use the length function in your expressions
-        System.out.println(AviatorEvaluator.execute("length('Hello, world!')"));  // Outputs: 13
-        System.out.println(AviatorEvaluator.execute("length('')"));  // Outputs: 0
+        System.out.println(AviatorEvaluator.execute("Len('Hello, world!')"));  // Outputs: 13
+        System.out.println(AviatorEvaluator.execute("Len('')"));  // Outputs: 0
     }
 }

@@ -4,11 +4,13 @@ import com.alibaba.fastjson.JSON;
 import com.cetiti.config.IMqttSender;
 import com.cetiti.config.TokenManagerConfig;
 import com.cetiti.constant.Assert;
+import com.cetiti.entity.StepVariable;
 import com.cetiti.entity.step.DataCallInfo;
 import com.cetiti.entity.step.DataCallStencil;
 import com.cetiti.expression.GrammarCheckUtils;
 import com.cetiti.request.CustomSignalParesRequest;
 import com.cetiti.request.CustomSignalRequest;
+import com.cetiti.request.checkExpressionRequest;
 import com.cetiti.response.BracketValidationResponse;
 import com.cetiti.service.CustomSignalService;
 import com.cetiti.service.TestSequenceService;
@@ -37,6 +39,9 @@ public class CustomSignalServiceImpl implements CustomSignalService {
 
     @Resource
     private TestSequenceService testSequenceService;
+
+    @Resource
+    private GrammarCheckUtils grammarCheckUtils;
 
     @Override
     public Boolean startCustomSignal(CustomSignalRequest request) {
@@ -80,12 +85,25 @@ public class CustomSignalServiceImpl implements CustomSignalService {
 
     @Override
     public BracketValidationResponse parseCustomSignal(CustomSignalParesRequest request) {
-        BracketValidationResponse bracketValidationResponse = testSequenceService.checkExpressionSyntax(request.getExpression());
-        if (!bracketValidationResponse.isValid()) {
+        Map<String, Object> param = request.getParam();
+        StepVariable stepVariable = new StepVariable();
+        for (Map.Entry<String, Object> entry : param.entrySet()) {
+            String key = entry.getKey();
+            Object value = entry.getValue();
+            stepVariable.addNestedAttributeObject(key, value, "");
+        }
+        BracketValidationResponse response = new BracketValidationResponse();
+        grammarCheckUtils.hasMatchingBrackets(request.getExpression(), response);
+        if (!response.isValid()) {
+            return response;
+        }
+        grammarCheckUtils.processExpression(request.getExpression(), stepVariable, response);
+        if (!response.isValid()) {
             redisUtil.hset(request.getUuid() + "parseCustomSignal", request.getName(), request, 3600);
         }
-        return bracketValidationResponse;
+        return response;
     }
+
 
     @Override
     public Boolean removeCustomSignal(String name, String uuid) {

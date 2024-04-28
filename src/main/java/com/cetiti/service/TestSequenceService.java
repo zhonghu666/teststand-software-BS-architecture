@@ -150,10 +150,10 @@ public interface TestSequenceService {
     /**
      * 表达式语法校验
      *
-     * @param expression
+     * @param request
      * @return
      */
-    BracketValidationResponse checkExpressionSyntax(String expression);
+    BracketValidationResponse checkExpressionSyntax(checkExpressionRequest request);
 
     /**
      * 复制序列
@@ -165,6 +165,7 @@ public interface TestSequenceService {
 
     /**
      * 弹窗步骤信息展示返回
+     *
      * @param id
      * @return
      */

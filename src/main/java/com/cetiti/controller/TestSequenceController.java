@@ -142,8 +142,9 @@ public class TestSequenceController {
 
     @ApiOperation(value = "表达式语法检验")
     @PostMapping("checkExpressionSyntax")
-    public BaseJson<BracketValidationResponse> checkExpressionSyntax(@RequestBody checkExpressionRequest expression) {
-        return new BaseJson<BracketValidationResponse>().Success(testSequenceService.checkExpressionSyntax(expression.getExpression()));
+    public BaseJson<BracketValidationResponse> checkExpressionSyntax(@RequestBody checkExpressionRequest request) {
+
+        return new BaseJson<BracketValidationResponse>().Success(testSequenceService.checkExpressionSyntax(request));
     }
 
     @ApiOperation(value = "复制序列")

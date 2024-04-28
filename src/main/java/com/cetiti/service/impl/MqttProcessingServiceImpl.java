@@ -3,8 +3,10 @@ package com.cetiti.service.impl;
 import com.alibaba.fastjson.JSON;
 import com.alibaba.fastjson.JSONObject;
 import com.cetiti.config.IMqttSender;
+import com.cetiti.dto.TestSequenceExecuteStatueDto;
 import com.cetiti.entity.DataCallField;
 import com.cetiti.entity.StepVariable;
+import com.cetiti.entity.step.DataCallStencil;
 import com.cetiti.entity.step.DataCallStep;
 import com.cetiti.entity.step.StepBase;
 import com.cetiti.request.CustomSignalFieldRequest;
@@ -64,6 +66,15 @@ public class MqttProcessingServiceImpl implements MqttProcessingService {
         if (dataCallStep == null) {
             log.error("序列:{}数据调用步骤不存在:", split[5]);
             return;
+        }
+        StepVariable stepVariable1 = cacheService.getStepVariable(split[5]);
+        Boolean dataCallStatus = stepVariable1.getValueByPath("RunState.DataCallStatus");
+        log.info("数据调用开关:{}", dataCallStatus);
+        if (dataCallStatus != null && !dataCallStatus) {
+            DataCallStencil dataCallStencil = new DataCallStencil();
+            dataCallStencil.setTestStart(false);
+            dataCallStencil.setId(split[5]);
+            iMqttSender.sendToMqtt("guoqi/scene/auto/main/command", JSON.toJSONString(dataCallStencil));
         }
         List<DataCallField> dataCallFields = dataCallStep.getDataCallFields();
         try {

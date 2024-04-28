@@ -1,6 +1,8 @@
 package com.cetiti.entity.step;
 
+import com.alibaba.fastjson.JSON;
 import com.cetiti.config.ApplicationContextHolder;
+import com.cetiti.config.IMqttSender;
 import com.cetiti.config.MongoConfig;
 import com.cetiti.constant.Assert;
 import com.cetiti.constant.FlowControlType;
@@ -33,6 +35,20 @@ public class SequenceCallStep extends StepBase {
 
     @Override
     protected StepVariable performSpecificTask(CacheService cacheService, Map<String, Object> pram) {
+        if (pram.get("intoStatus") != null) {
+            StepVariable step;
+            StepVariable stepVariable = cacheService.getStepVariable(childTestSequenceId);
+            String childTestSequenceStatus = stepVariable.getValueByPath("RunState.SequenceStatus");
+            if (StepStatus.PASSED.getCode().equals(childTestSequenceStatus)) {
+                step = StepVariable.RESULT_SUCCESS(StepStatus.DONE);
+            } else {
+                String errorMsg = stepVariable.getValueByPath("Result.Error.Msg");
+                step = StepVariable.RESULT_Fail(StepStatus.FAILED, errorMsg != null ? errorMsg : "");
+            }
+            StepVariable error = stepVariable.getValueByPath("RunState.SequenceError");
+            step.addNestedAttribute("Result.Error", error, "");
+            return step;
+        }
         MongoTemplate mongoTemplate = ApplicationContextHolder.getBean(MongoConfig.MONGO_TEMPLATE, MongoTemplate.class);
         List<StepBase> stepBases = mongoTemplate.find(new Query().addCriteria(Criteria.where("testSequenceId").is(childTestSequenceId)), StepBase.class);
         if (cacheService.getStepVariable(childTestSequenceId) == null) {
@@ -47,35 +63,99 @@ public class SequenceCallStep extends StepBase {
         get(stepBases);
         pram.put("executeType", 1);
         Iterator<StepBase> iterator = stepBases.iterator();
+        Boolean dataCallFlag = false;
+        boolean currentBlockExecuted = false; // 跟踪当前条件块是否已执行
+        boolean selectBlockExecuted = false;  // 跟踪当前select-case块是否有case已执行
+
         while (iterator.hasNext()) {
             StepBase currentStep = iterator.next();
-            if (currentStep instanceof DataCallStep) {
-                pram.put("DATA_CALL_TOPIC", "guoqi/scene/auto/sub/command");
+            String stepType = currentStep.getType(); // 获取当前步骤的类型
+            if (stepType.equals("N_FLOW_CONTROL")) {
+                FlowControlStep flowControlStep = (FlowControlStep) currentStep;
+                FlowControlType subType = flowControlStep.getSubType();
+                // 检测是否需要重置状态（遇到新的条件块或非条件块的步骤）
+                if (subType.equals(F_IF) || (!subType.equals(F_ELSE_IF) && !subType.equals(F_ELSE) && currentBlockExecuted)) {
+                    currentBlockExecuted = false; // 重置当前条件块的执行状态
+                }
+                if (subType.equals(F_SELECT) || (!subType.equals(F_CASE) && selectBlockExecuted)) {
+                    selectBlockExecuted = false; // 重置当前select-case块的执行状态
+                }
+                // 处理条件块和select-case块
+                if (subType.equals(F_IF) || subType.equals(F_ELSE_IF) || subType.equals(F_ELSE)) {
+                    if (!currentBlockExecuted) {
+                        StepVariable executeResult = currentStep.execute(cacheService, pram);
+                        Boolean FlowStatus = executeResult.getValueByPath("FlowStatus");
+                        if (FlowStatus != null && FlowStatus) {
+                            currentBlockExecuted = true; // 标记当前条件块已执行
+                        }
+                    }
+                } else if (subType.equals(F_CASE)) {
+                    if (!selectBlockExecuted) {
+                        StepVariable executeResult = currentStep.execute(cacheService, pram);
+                        Boolean FlowStatus = executeResult.getValueByPath("FlowStatus");
+                        if (FlowStatus != null && FlowStatus) {
+                            selectBlockExecuted = true; // 标记当前条件块已执行
+                        }
+                    }
+                } else {
+                    // 处理非条件和非case步骤
+                    if (currentStep instanceof DataCallStep) {
+                        dataCallFlag = true;
+                        pram.put("DATA_CALL_TOPIC", "guoqi/scene/auto/sub/command");
+                    }
+                    StepVariable executeResult = currentStep.execute(cacheService, pram);
+                    String gotoId = executeResult.getValueByPath("GotoId");
+                    if (StringUtils.isNotBlank(gotoId)) {
+                        iterator = stepBases.stream()
+                                .filter(step -> gotoId.equals(step.getId()))
+                                .findFirst()
+                                .map(step -> stepBases.iterator())
+                                .orElseThrow(() -> new RuntimeException("Goto ID not found"));
+                    }
+                }
+            } else {
+                // 处理非条件和非case步骤
+                if (currentStep instanceof DataCallStep) {
+                    dataCallFlag = true;
+                    pram.put("DATA_CALL_TOPIC", "guoqi/scene/auto/sub/command");
+                }
+                StepVariable executeResult = currentStep.execute(cacheService, pram);
+                String gotoId = executeResult.getValueByPath("GotoId");
+                if (StringUtils.isNotBlank(gotoId)) {
+                    iterator = stepBases.stream()
+                            .filter(step -> gotoId.equals(step.getId()))
+                            .findFirst()
+                            .map(step -> stepBases.iterator())
+                            .orElseThrow(() -> new RuntimeException("Goto ID not found"));
+                }
             }
-            StepVariable executeResult = currentStep.execute(cacheService, pram);
-            String gotoId = executeResult.getValueByPath("GotoId");
-            if (StringUtils.isNotBlank(gotoId)) {
-                iterator = stepBases.stream()
-                        .filter(step -> gotoId.equals(step.getId()))
-                        .findFirst()
-                        .map(step -> stepBases.iterator())
-                        .orElseThrow(() -> new RuntimeException("Goto ID not found"));
-            }
+        }
+        if (dataCallFlag) {
+            DataCallStencil dataCallStencil = new DataCallStencil();
+            dataCallStencil.setTestStart(false);
+            dataCallStencil.setId(childTestSequenceId);
+            IMqttSender iMqttSender = ApplicationContextHolder.getBean(IMqttSender.class);
+            iMqttSender.sendToMqtt("guoqi/scene/auto/sub/command", JSON.toJSONString(dataCallStencil));
         }
         redisUtil.del(pram.get("exceptVersion") + ":" + childTestSequenceId + "execute");
         StepVariable childStepVariable = cacheService.getStepVariable(childTestSequenceId);
         String runStatus = childStepVariable.getValueByPath("RunState.SequenceStatus");
-        String errorMsg = childStepVariable.getValueByPath("Result.Error.Msg");
         StepVariable step;
         if (StepStatus.PASSED.getCode().equals(runStatus)) {
             step = StepVariable.RESULT_SUCCESS(StepStatus.DONE);
         } else {
+            String errorMsg = childStepVariable.getValueByPath("Result.Error.Msg");
             step = StepVariable.RESULT_Fail(StepStatus.FAILED, errorMsg != null ? errorMsg : "");
         }
         step.addNestedAttribute("childTestSequenceId", childTestSequenceId, "子序列Id");
         return step;
     }
 
+    /**
+     * 筛选步骤，把流控包含的步骤删除
+     *
+     * @param stepBaseList 序列步骤列表
+     */
     private void get(List<StepBase> stepBaseList) {
         boolean[] keepStep = new boolean[stepBaseList.size()];
         Arrays.fill(keepStep, false);

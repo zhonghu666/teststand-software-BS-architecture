@@ -72,6 +72,9 @@ public class TestSequenceServiceImpl implements TestSequenceService {
     @Resource
     private HttpServletRequest httpServletRequest;
 
+    @Resource
+    private GrammarCheckUtils grammarCheckUtils;
+
     @Override
     public String saveTestSequence(TestSequenceSaveRequest request) {
         log.info("保存序列入参:{}", JSON.toJSON(request));
@@ -267,7 +270,7 @@ public class TestSequenceServiceImpl implements TestSequenceService {
         cacheService.saveOrUpdateStepVariable(step.getTestSequenceId(), testSequence.getStepVariable());
         StepVariable execute = step.execute(cacheService, request.getParam());
         StepExecuteResponse stepExecuteResponse = new StepExecuteResponse(execute);
-        cacheService.deleteStepVariable(step.getTestSequenceId());
+        //cacheService.deleteStepVariable(step.getTestSequenceId());
         return stepExecuteResponse;
     }
 
@@ -428,14 +431,15 @@ public class TestSequenceServiceImpl implements TestSequenceService {
     }
 
     @Override
-    public BracketValidationResponse checkExpressionSyntax(String expression) {
+    public BracketValidationResponse checkExpressionSyntax(checkExpressionRequest request) {
         BracketValidationResponse response = new BracketValidationResponse();
-        expression = expression.replace(" ", "").replaceAll("\\s+", "");
-        GrammarCheckUtils.hasMatchingBrackets(expression, response);
+        StepVariable stepVariable = request.getStepVariableDTO() != null ? convertToEntity(request.getStepVariableDTO()) : new StepVariable();
+        String expression = request.getExpression().replace(" ", "").replaceAll("\\s+", "");
+        grammarCheckUtils.hasMatchingBrackets(expression, response);
         if (!response.isValid()) {
             return response;
         }
-        GrammarCheckUtils.processExpression(expression, cacheService, response);
+        grammarCheckUtils.processExpression(expression, stepVariable, response);
         return response;
     }
 

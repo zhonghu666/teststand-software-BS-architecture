@@ -1,13 +1,9 @@
 package com.cetiti.expression.numeric;
-
-import com.alibaba.fastjson.JSON;
 import com.googlecode.aviator.AviatorEvaluator;
 import com.googlecode.aviator.runtime.function.AbstractVariadicFunction;
-import com.googlecode.aviator.runtime.function.FunctionUtils;
-import com.googlecode.aviator.runtime.type.AviatorObject;
-import com.googlecode.aviator.runtime.type.AviatorNumber;
-import com.googlecode.aviator.runtime.type.AviatorNil;
 import com.googlecode.aviator.runtime.type.AviatorJavaType;
+import com.googlecode.aviator.runtime.type.AviatorObject;
+import com.googlecode.aviator.runtime.type.AviatorRuntimeJavaType;
 
 import java.util.Arrays;
 import java.util.HashMap;
@@ -16,15 +12,25 @@ import java.util.Map;
 
 public class MinFunction extends AbstractVariadicFunction {
     @Override
+    public String getName() {
+        return "Min";
+    }
+
+    @Override
     public AviatorObject variadicCall(Map<String, Object> env, AviatorObject... args) {
         if (args.length == 0) {
-            throw new IllegalArgumentException("Min function expects at least one argument");
+            throw new IllegalArgumentException("min 函数至少需要一个参数");
         }
 
-        if (args[0].getValue(env) instanceof List) {
-            List<?> list = (List<?>) args[0].getValue(env);
-            if (list.isEmpty()) return AviatorNil.NIL;
-            double min = Double.MAX_VALUE;
+        // 检查第一个参数是否为 List
+        Object firstArg = args[0].getValue(env);
+        if (firstArg instanceof List) {
+            List<?> list = (List<?>) firstArg;
+            if (list.isEmpty()) {
+                throw new IllegalArgumentException("数组不能为空");
+            }
+
+            double min = Double.POSITIVE_INFINITY;
             int minIndex = -1;
             for (int i = 0; i < list.size(); i++) {
                 double value = ((Number) list.get(i)).doubleValue();
@@ -33,44 +39,37 @@ public class MinFunction extends AbstractVariadicFunction {
                     minIndex = i;
                 }
             }
-            if (args.length > 1) {
-                // 确保第二个参数是用于存储索引的，而不是另一个数值
-                if (args[1] instanceof AviatorJavaType) {
-                    String indexStr = ((AviatorJavaType) args[1]).getName();
-                    env.put("out" + indexStr, minIndex);
-                }
+
+            if (args.length > 1 && minIndex != -1) {
+                env.put("out" + ((AviatorJavaType) args[1]).getName(), minIndex);
             }
-            return AviatorNumber.valueOf(min);
+            return AviatorRuntimeJavaType.valueOf(min);
         } else {
-            double min = Double.MAX_VALUE;
+            // 处理传递多个数字的情况
+            double min = Double.POSITIVE_INFINITY;
             for (AviatorObject arg : args) {
-                double value = FunctionUtils.getNumberValue(arg, env).doubleValue();
-                if (value < min) {
-                    min = value;
+                Number num = (Number) arg.getValue(env);
+                if (num.doubleValue() < min) {
+                    min = num.doubleValue();
                 }
             }
-            return AviatorNumber.valueOf(min);
+            return AviatorRuntimeJavaType.valueOf(min);
         }
     }
 
-    @Override
-    public String getName() {
-        return "Min";
-    }
-
     public static void main(String[] args) {
-        AviatorEvaluator.addFunction(new MinFunction());
-        Object execute = AviatorEvaluator.execute("Min(1, 2, 3)");
-        System.out.println(execute);
-        // 或者对于一个集合
-        List<Number> numbers = Arrays.asList(1, 2, 3,43,4512);
+        AviatorEvaluator.addFunction(new MaxFunction());
+
+        // 直接传递多个数字
+        System.out.println(AviatorEvaluator.execute("Min(3, 1, 4, 1, 5, 9, 2, 6)")); // 输出 9.0
+
         Map<String, Object> env = new HashMap<>();
-        env.put("numbers", numbers);
-        env.put("index", 11);
-        Object execute1 = AviatorEvaluator.execute("Min(numbers,index)", env);
-        System.out.println(execute1);
-        System.out.println(JSON.toJSON(env));
+        env.put("array", Arrays.asList(3, 1, 4, 1, 5, 9, 2, 6));
+        env.put("maxIndex", "");
+        Object execute = AviatorEvaluator.execute("Min(array, maxIndex)",env);
+        // 传递 List 和可选参数
+        System.out.println(execute); // 输出 9.0
+        System.out.println(env);
 
     }
 }
-

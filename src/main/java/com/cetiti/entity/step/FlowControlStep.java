@@ -18,6 +18,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.data.mongodb.core.MongoTemplate;
 
+import java.util.List;
 import java.util.Map;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -60,6 +61,7 @@ public class FlowControlStep extends StepBase {
                 case F_IF:
                 case F_ELSE_IF:
                     if (ExpressionParserUtils.conditionalExecution(condition, stepVariable, cacheService, testSequenceId) == 1) {
+                        step.addNestedAttribute("FlowStatus", true, "流控表达式结果");
                         for (StepBase stepBase : cacheService.getStep(testSequenceId).subList(startIndex + 1, endIndex)) {
                             stepBase.execute(cacheService, pram);
                         }
@@ -152,6 +154,7 @@ public class FlowControlStep extends StepBase {
                         String selectCondition = select.getCondition();
                         Assert.handle(StringUtils.isNotBlank(selectCondition), "select步骤表达式为空");
                         if (ExpressionParserUtils.conditionalExecution(selectCondition + "==" + condition, stepVariable, cacheService, testSequenceId) == 1) {
+                            step.addNestedAttribute("FlowStatus", true, "流控表达式结果");
                             for (StepBase stepBase : cacheService.getStep(testSequenceId).subList(startIndex + 1, endIndex)) {
                                 stepBase.execute(cacheService, pram);
                             }
@@ -162,6 +165,7 @@ public class FlowControlStep extends StepBase {
                     step.addNestedAttribute("GotoId", gotoStepId, "gotoId");
                     break;
                 case F_ELSE:
+                    step.addNestedAttribute("FlowStatus", true, "流控表达式结果");
                     for (StepBase stepBase : cacheService.getStep(testSequenceId).subList(startIndex + 1, endIndex)) {
                         stepBase.execute(cacheService, pram);
                     }

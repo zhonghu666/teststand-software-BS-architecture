@@ -13,6 +13,7 @@ import com.cetiti.expression.array.GetArrayBoundsFunction;
 import com.cetiti.expression.array.GetNumElementsFunction;
 import com.cetiti.expression.numeric.AscFunction;
 import com.cetiti.expression.numeric.CalculateRelativeDistance;
+import com.cetiti.expression.numeric.MaxFunction;
 import com.cetiti.expression.string.SplitFunction;
 import com.cetiti.service.impl.CacheService;
 import com.googlecode.aviator.AviatorEvaluator;
@@ -273,7 +274,7 @@ public class ExpressionParserUtils {
 
 
     /**
-     * 表达式预处理-用于处理函数嵌套，数组调用
+     * 表达式预处理-用于处理数组调用，解析数组索引内的结果
      *
      * @param expression
      * @param stepVariable
@@ -359,9 +360,11 @@ public class ExpressionParserUtils {
         AviatorEvaluator.addFunction(new GetArrayBoundsFunction());
         AviatorEvaluator.addFunction(new SplitFunction());
         AviatorEvaluator.addFunction(new AscFunction());
-        //String expression = "CalculateRelativeDistance(list.[GetNumElements(list)-1].hv_lat,list.[GetNumElements(list)-1].hv_lon,Locals.Data.lat,Locals.Data.lon)";
-        //String expression = "Locals.Data.BSM.speed";
-        String expression = "Asc(Locals.Data.RSI.uuid)";
+        AviatorEvaluator.addFunction(new MaxFunction());
+       // String expression = "CalculateRelativeDistance(list.[GetNumElements(list)-1].hv_lat,list.[GetNumElements(list)-1].hv_lon,Locals.Data.lat,Locals.Data.lon)";
+       // String expression = "Max(Locals.Data.RSI.non,Locals.num1)";
+        //String expression = "Asc(Locals.Data.RSI.uuid)";
+        String expression = "'sda' >12";
         //currencyExecution(expression, step, null, "121");
         //Object valueByPath = step.getValueByPath("Locals.Data.BSM.speed");
         //System.out.println(valueByPath);

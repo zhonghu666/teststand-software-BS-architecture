@@ -69,6 +69,9 @@ public class mockController {
     @Resource
     private TokenManagerConfig tokenManagerConfig;
 
+    @Resource
+    private GrammarCheckUtils grammarCheckUtils;
+
 
     @PostMapping("function")
     public List<String> importFunction(@RequestPart("file") MultipartFile file) throws Exception {
@@ -135,18 +138,10 @@ public class mockController {
     }
 
     @GetMapping("initStepVariableRequest")
-    public StepVariableDTO initStepVariableRequest() {
-        StepVariable step = new StepVariable();
-        step.addNestedAttribute("Locals.Data.BSM.id", "123456", "id");
-        StepVariable step1 = new StepVariable();
-        step1.addNestedAttribute("a", 1, "");
-        step1.addNestedAttribute("b", 2, "");
-        StepVariable step2 = new StepVariable();
-        step2.addNestedAttribute("c", 3, "");
-        step2.addNestedAttribute("d", 4, "");
-        step1.addNestedAttribute("te", step2, "");
-        step.addToListAtPath("node", step1);
-        return testSequenceService.convertToDTO(step);
+    public StepVariableDTO initStepVariableRequest(@RequestParam String id) {
+        TestSequence byId = mongoTemplate.findById(id, TestSequence.class);
+        cacheService.saveOrUpdateStepVariable(id, byId.getStepVariable());
+        return null;
     }
 
     @PostMapping("initStepVariable")
@@ -260,9 +255,11 @@ public class mockController {
     }
 
     @PostMapping("test4")
-    public void test4(@RequestBody String s) {
+    public void test4(@RequestBody String s, @RequestParam String id) {
         BracketValidationResponse bracketValidationResponse = new BracketValidationResponse();
-        GrammarCheckUtils.processExpression(s, cacheService, bracketValidationResponse);
+        StepVariable stepVariable = cacheService.getStepVariable(id);
+        s = s.replace(" ", "").replaceAll("\\s+", "");
+        grammarCheckUtils.processExpression(s, stepVariable, bracketValidationResponse);
         System.out.println(JSON.toJSON(bracketValidationResponse));
     }
 

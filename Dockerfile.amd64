@@ -3,7 +3,7 @@ FROM adoptopenjdk/openjdk11:jre-11.0.9.1_1-alpine
 VOLUME /app
 ADD target/app.jar /app/app.jar
 WORKDIR /app
-#ÉèÖÃÊ±Çø
+#ï¿½ï¿½ï¿½ï¿½Ê±ï¿½ï¿½
 RUN echo -e http://mirrors.ustc.edu.cn/alpine/v3.12/main/ > /etc/apk/repositories && \
 apk --update add tzdata && \
 cp /usr/share/zoneinfo/Asia/Shanghai /etc/localtime && \
@@ -12,4 +12,4 @@ apk add --update ttf-dejavu fontconfig && \
 apk del tzdata && \
 rm -rf /var/cache/apk/*
 
-CMD "java" "-jar" "app.jar"
+ENTRYPOINT java -Xms250 -Xmx250 -XX:+PrintFlagsFinal -XX:+HeapDumpOnOutOfMemoryError - XX:HeapDumpPath=/app/logs/ -jar app.jar

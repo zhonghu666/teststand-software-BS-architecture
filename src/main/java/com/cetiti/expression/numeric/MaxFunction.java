@@ -1,25 +1,37 @@
 package com.cetiti.expression.numeric;
 
-import com.alibaba.fastjson.JSON;
 import com.googlecode.aviator.AviatorEvaluator;
 import com.googlecode.aviator.runtime.function.AbstractVariadicFunction;
-import com.googlecode.aviator.runtime.function.FunctionUtils;
-import com.googlecode.aviator.runtime.type.*;
+import com.googlecode.aviator.runtime.type.AviatorObject;
+import com.googlecode.aviator.runtime.type.AviatorJavaType;
+import com.googlecode.aviator.runtime.type.AviatorRuntimeJavaType;
 
-import java.util.*;
+import java.util.Arrays;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 
 public class MaxFunction extends AbstractVariadicFunction {
     @Override
+    public String getName() {
+        return "Max";
+    }
+
+    @Override
     public AviatorObject variadicCall(Map<String, Object> env, AviatorObject... args) {
         if (args.length == 0) {
-            throw new IllegalArgumentException("Max function expects at least one argument");
+            throw new IllegalArgumentException("max 函数至少需要一个参数");
         }
 
-        // 检查是否为列表参数
-        if (args[0].getValue(env) instanceof List) {
-            List<?> list = (List<?>) args[0].getValue(env);
-            if (list.isEmpty()) return AviatorNil.NIL;
-            double max = Double.MIN_VALUE;
+        // 检查第一个参数是否为 List
+        Object firstArg = args[0].getValue(env);
+        if (firstArg instanceof List) {
+            List<?> list = (List<?>) firstArg;
+            if (list.isEmpty()) {
+                throw new IllegalArgumentException("数组不能为空");
+            }
+
+            double max = Double.NEGATIVE_INFINITY;
             int maxIndex = -1;
             for (int i = 0; i < list.size(); i++) {
                 double value = ((Number) list.get(i)).doubleValue();
@@ -28,42 +40,39 @@ public class MaxFunction extends AbstractVariadicFunction {
                     maxIndex = i;
                 }
             }
-            if (args.length > 1) {
-                // 处理可选的索引参数
+
+            if (args.length > 1 && maxIndex != -1) {
                 env.put("out" + ((AviatorJavaType) args[1]).getName(), maxIndex);
             }
-            return AviatorNumber.valueOf(max);
+            return AviatorRuntimeJavaType.valueOf(max);
         } else {
-            // 处理一组数字参数
-            double max = Double.MIN_VALUE;
+            // 处理传递多个数字的情况
+            double max = Double.NEGATIVE_INFINITY;
             for (AviatorObject arg : args) {
-                double value = FunctionUtils.getNumberValue(arg, env).doubleValue();
-                if (value > max) {
-                    max = value;
+                Number num = (Number) arg.getValue(env);
+                if (num.doubleValue() > max) {
+                    max = num.doubleValue();
                 }
             }
-            return AviatorNumber.valueOf(max);
+            return AviatorRuntimeJavaType.valueOf(max);
         }
-    }
-
-    @Override
-    public String getName() {
-        return "Max";
     }
 
     public static void main(String[] args) {
         AviatorEvaluator.addFunction(new MaxFunction());
-        Object execute = AviatorEvaluator.execute("Max(1, 2, 3)");
-        System.out.println(execute);
-        // 或者对于一个集合
-        List<Number> numbers = Arrays.asList(1, 2, 3,43,4512);
+
+        // 直接传递多个数字
+        System.out.println(AviatorEvaluator.execute("Max(3, 1, 4, 1, 5, 9, 2, 6)")); // 输出 9.0
+
         Map<String, Object> env = new HashMap<>();
-        env.put("numbers", numbers);
-        env.put("index", 11);
-        Object execute1 = AviatorEvaluator.execute("Max(numbers,index)", env);
-        System.out.println(execute1);
-        System.out.println(JSON.toJSON(env));
+        env.put("array", Arrays.asList(3, 1, 4, 1, 5, 9, 2, 6));
+        env.put("maxIndex", "");
+        Object execute = AviatorEvaluator.execute("Max(array, maxIndex)",env);
+        // 传递 List 和可选参数
+        System.out.println(execute); // 输出 9.0
+        System.out.println(env);
 
     }
 }
+
 
