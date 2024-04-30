@@ -97,7 +97,7 @@ public class CustomSignalServiceImpl implements CustomSignalService {
         if (!response.isValid()) {
             return response;
         }
-        grammarCheckUtils.processExpression(request.getExpression(), stepVariable, response);
+        grammarCheckUtils.processExpression(request.getExpression(), stepVariable, response, request.getType());
         if (!response.isValid()) {
             redisUtil.hset(request.getUuid() + "parseCustomSignal", request.getName(), request, 3600);
         }

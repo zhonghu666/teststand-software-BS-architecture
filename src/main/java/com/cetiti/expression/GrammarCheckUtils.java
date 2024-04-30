@@ -12,7 +12,6 @@ import lombok.Data;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.data.mongodb.core.MongoTemplate;
 import org.springframework.stereotype.Component;
-import utils.entity.BusinessException;
 
 import javax.annotation.Resource;
 import java.util.*;
@@ -165,13 +164,13 @@ public class GrammarCheckUtils {
      * @param expression
      * @return
      */
-    public void processExpression(String expression, StepVariable stepVariable, BracketValidationResponse response) {
+    public void processExpression(String expression, StepVariable stepVariable, BracketValidationResponse response, String resultType) {
         List<Token> tokens = new ArrayList<>();
         List<FunctionMetadata> functions = getFunction();
-        expression = processingExpressionArry(expression, stepVariable, response, functions);
+        expression = processingExpressionArry(expression, stepVariable, response, functions, "NUMBER");
         List<String> functionNames = functions.stream().filter(i -> i.getType().equals("Functions")).map(FunctionMetadata::getFunctionName).collect(Collectors.toList());
         Map<String, FunctionMetadata> functionMap = functions.stream().filter(i -> i.getType().equals("Functions")).collect(Collectors.toMap(FunctionMetadata::getFunctionName, a -> a));
-        Map<String, FunctionMetadata> OperatorMap = functions.stream().filter(i -> i.getType().equals("Operators")).collect(Collectors.toMap(FunctionMetadata::getFunctionName, a -> a));
+        Map<String, FunctionMetadata> operatorMap = functions.stream().filter(i -> i.getType().equals("Operators")).collect(Collectors.toMap(FunctionMetadata::getFunctionName, a -> a));
         int index = 0;
         while (index < expression.length()) {
             int start = index;
@@ -192,7 +191,6 @@ public class GrammarCheckUtils {
                 index++;  // Skip spaces
             }
         }
-        System.out.println(JSON.toJSON(tokens));
         legalVerify(tokens, response, functions);
         Stack<Integer> stack = new Stack<>();
         int i = 0;
@@ -217,20 +215,41 @@ public class GrammarCheckUtils {
                     int funcIndex = stack.pop();
                     // Check if the function call is the most inner one
                     if (tempStack.isEmpty()) { // No other functions inside
-                        replaceFunctionWithPlaceholder(tokens, funcIndex, i, functionMap, OperatorMap, response, stepVariable);
+                        replaceFunctionWithPlaceholder(tokens, funcIndex, i, functionMap, operatorMap, response, stepVariable);
                         i = funcIndex; // Reset i to the position of the new placeholder
                     }
                 }
             }
             i++;
         }
+        String expressionResultType;
+        if (tokens.size() == 1) {
+            expressionResultType = getParamType(tokens.get(0).getValue(), stepVariable);
+        } else {
+            List<Token> postfix = toPostfix(tokens, functionNames, operatorMap);
+            expressionResultType = operatorParamVerify(operatorMap, stepVariable, response, postfix);
+        }
+        if ("NONE".equals(resultType) && expressionResultType != null) {
+            response.setReturnErrorMsg("The window does not need to return, but return expressionResultType :" + expressionResultType);
+            if (response.isValid()){
+                response.setValid(false);
+            }
+        } else if (!"NONE".equals(resultType)) {
+            if (expressionResultType == null || !expressionResultType.equals(resultType)) {
+                response.setReturnErrorMsg("The expression returned does not meet the window requirements, need:" + resultType + ", but got:" + expressionResultType);
+                if (response.isValid()){
+                    response.setValid(false);
+                }
+            }
+        }
+
     }
 
-    private static boolean isOperator(String expr, int index) {
+    private boolean isOperator(String expr, int index) {
         return lengthOfOperator(expr, index) > 0;
     }
 
-    private static int lengthOfOperator(String expr, int index) {
+    private int lengthOfOperator(String expr, int index) {
         for (String op : operators) {
             if (index + op.length() <= expr.length() && expr.substring(index, index + op.length()).equals(op)) {
                 return op.length();
@@ -278,91 +297,126 @@ public class GrammarCheckUtils {
                                                 Map<String, FunctionMetadata> functionMetadataMap,
                                                 Map<String, FunctionMetadata> operatorMap,
                                                 BracketValidationResponse response, StepVariable stepVariable) {
-        List<Token> newTokens = new ArrayList<>();
-        List<String> childToken = new ArrayList<>();
-        Token lastNonOperatorToken = null;
-        boolean flag = false;
-        int operatorCount = 0;
         StringBuffer placeholder = new StringBuffer();
         placeholder.append("F_");
-        for (int j = end; j >= start; j--) {
+        List<List<Token>> newTokensList = new ArrayList<>(); // 最外层列表
+        List<Token> currentParamTokens = new ArrayList<>();
+        Token functionName = tokens.get(start);
+        for (int j = start + 1; j < end; j++) {
             Token token = tokens.get(j);
-            childToken.add(token.getValue());
-            if (!token.getValue().equals(",") && !token.getValue().equals("(") && !token.getValue().equals(")")) {
-                if (operatorMap.containsKey(token.getValue())) {
-                    flag = true;
-                    // Check if current operator's operands are valid
-                    if (lastNonOperatorToken == null || operatorCount >= 1) {
-                        response.addError("Invalid operation" + token.getValue(), token.getStartPos(), token.getEndPos());
-                    }
-                    operatorCount++;
-                } else {
-                    lastNonOperatorToken = token;
-                    operatorCount = 0;  // Reset operator count after a non-operator token
-                }
-                newTokens.add(token);
+            String tokenValue = token.getValue();
+            // 遇到逗号，意味着一个参数的结束
+            if (tokenValue.equals(",")) {
+                List<Token> postfix = toPostfix(currentParamTokens, new ArrayList<>(), operatorMap);
+                // 添加当前参数的token列表到最外层列表中，并准备新的参数列表
+                newTokensList.add(postfix);
+                currentParamTokens.clear();
+            } else {
+                // 如果不是逗号，则添加token到当前参数的token列表中
+                currentParamTokens.add(token);
             }
+        }
+
+        // 确保最后一个参数被添加，如果有的话
+        if (!currentParamTokens.isEmpty()) {
+            List<Token> postfix = toPostfix(currentParamTokens, new ArrayList<>(), operatorMap);
+            newTokensList.add(postfix);
+        }
+
+        // 清理已处理的tokens，并插入占位符
+        for (int j = end; j >= start; j--) {
             tokens.remove(j);
         }
-        Collections.reverse(childToken);
-        childToken.remove(0);
-        List<String> strings = convertToPostfix(childToken, operatorMap);
-        Collections.reverse(newTokens);
-        Token functionName = newTokens.remove(0);
+        System.out.println(JSON.toJSON(newTokensList));
 
         // Validate function parameter count
         if (functionMetadataMap.containsKey(functionName.getValue())) {
             FunctionMetadata functionMetadata = functionMetadataMap.get(functionName.getValue());
             placeholder.append(functionMetadata.getReturnType());
-            int paramCount = flag ? 1 : newTokens.size();
+            int paramCount = newTokensList.size();
             if (paramCount < functionMetadata.getParamCountLow()) {
                 response.addError("Number of parameters is less than minimum " + functionName.getValue(), functionName.getStartPos(), functionName.getEndPos());
             } else if (paramCount > functionMetadata.getParamCountHig()) {
                 response.addError("Number of parameters is higher than maximum " + functionName.getValue(), functionName.getStartPos(), functionName.getEndPos());
             }
-            processTokens(newTokens, operatorMap, functionMetadata, stepVariable, response);
+            processTokens(newTokensList, operatorMap, functionMetadata, stepVariable, response);
         } else {
             response.addError("Function not defined: " + functionName.getValue(), functionName.getStartPos(), functionName.getEndPos());
         }
-        tokens.add(start, new Token(placeholder.toString(), newTokens.get(0).getStartPos(), newTokens.get(0).getStartPos() + 1));
+        tokens.add(start, new Token(placeholder.toString(), start, start + placeholder.length()));
     }
 
 
-    private void processTokens(List<Token> tokens, Map<String, FunctionMetadata> operatorMap,
+    private void processTokens(List<List<Token>> tokens, Map<String, FunctionMetadata> operatorMap,
                                FunctionMetadata function,
                                StepVariable stepVariable, BracketValidationResponse response) {
         if (function.getParamCountLow() == 0) {
             return;
         }
         List<String> functionParamTypes = extractPatterns(function.getTemplate());
-        int i = 0;
         int j = 0;
-        while (i < tokens.size() && j < functionParamTypes.size()) {
-            Token currentToken = tokens.get(i);
+        for (List<Token> paramToken : tokens) {
             String paramType = functionParamTypes.get(j);
             String operatorResultType = null;
-
-            if (i + 1 < tokens.size() && operatorMap.containsKey(tokens.get(i + 1).getValue())) {
-                if (i + 2 < tokens.size()) {
-                    Token nextToken = tokens.get(i + 1);
-                    Token nextNextToken = tokens.get(i + 2);
-                    FunctionMetadata operator = operatorMap.get(nextToken.getValue());
-                    operatorResultType = operatorParameterVerification(currentToken, nextToken, nextNextToken, operator, stepVariable, response);
-                    i += 3;  // Move past the tokens that have been processed
-                } else {
-                    // Not enough tokens to perform operation
-                    break;
-                }
+            if (paramToken.size() == 1) {
+                operatorResultType = getParamType(paramToken.get(0).getValue(), stepVariable);
             } else {
-                operatorResultType = getParamType(currentToken.getValue(), stepVariable);
-                i++;  // Move to the next token
+                operatorResultType = operatorParamVerify(operatorMap, stepVariable, response, paramToken);
             }
-
+            // 检查运算结果类型是否符合预期的参数类型
             if (operatorResultType == null || !operatorResultType.equals(paramType)) {
-                response.addError("function : " + function.getFunctionName() + ":" + (j + 1) + " parameter type error", currentToken.getStartPos(), currentToken.getEndPos());
+                response.addError("Function: " + function.getFunctionName() + ":" + (j + 1) + " parameter type error", paramToken.get(0).getStartPos(), paramToken.get(paramToken.size() - 1).getEndPos());
             }
             j++;
         }
+    }
+
+    /**
+     * 对传入后缀表达式参数列表进行 运算符参数数据类型校验
+     *
+     * @param operatorMap  运算符map
+     * @param stepVariable 变量树
+     * @param response     异常栈
+     * @param paramToken   后缀表达式参数列表
+     * @return 最终结果数据类型
+     */
+    private String operatorParamVerify(Map<String, FunctionMetadata> operatorMap, StepVariable stepVariable, BracketValidationResponse response, List<Token> paramToken) {
+        int i = 0;
+        String operatorResultType = null;
+        Token token = paramToken.get(paramToken.size() - 1);
+        while (i < paramToken.size()) {
+            Token currentToken = paramToken.get(i);
+            // 检查是否存在运算符，以及前面是否有两个Token作为操作数
+            if (i - 2 >= 0 && operatorMap.containsKey(currentToken.getValue())) {
+                Token operand1 = paramToken.get(i - 2);
+                Token operand2 = paramToken.get(i - 1);
+                FunctionMetadata operator = operatorMap.get(currentToken.getValue());
+
+                // 进行类型校验或其他逻辑处理
+                String chileOperator = operatorParameterVerification(operand1, currentToken, operand2, operator, stepVariable, response);
+
+                // 处理结束后，使用占位符替换这三个Token
+                String placeholder = "F_" + chileOperator; // 占位符名称可以根据需要调整
+                Token placeholderToken = new Token(placeholder, operand1.getStartPos(), currentToken.getEndPos()); // 创建占位符Token
+
+                // 将原先三个Token的位置替换为一个占位符Token
+                paramToken.set(i - 2, placeholderToken); // 替换第一个操作数为占位符
+                paramToken.remove(i); // 移除原运算符
+                paramToken.remove(i - 1); // 移除第二个操作数，注意列表长度已变化
+
+                // 由于列表长度减少，i需要适当调整以指向下一个正确的位置
+                i = i - 2; // 合并后，i指向新的占位符位置，循环会使i自增，指向下一个待处理的Token
+            } else {
+                i++; // 如果当前Token不是运算符或没有足够的操作数，则移到下一个Token
+            }
+        }
+        FunctionMetadata functionMetadata = operatorMap.get(token.getValue());
+        if (functionMetadata == null) {
+            response.addError("operator: " + token.getValue() + " not fond", token.getStartPos(), token.getEndPos());
+        } else {
+            operatorResultType = functionMetadata.getReturnType();
+        }
+        return operatorResultType;
     }
 
 
@@ -458,14 +512,14 @@ public class GrammarCheckUtils {
         return Arrays.asList(validTypes).contains(type);
     }
 
-    private String processingExpressionArry(String expression, StepVariable stepVariable, BracketValidationResponse response, List<FunctionMetadata> functions) {
+    private String processingExpressionArry(String expression, StepVariable stepVariable, BracketValidationResponse response, List<FunctionMetadata> functions, String resultType) {
         Pattern bracketPattern = Pattern.compile("\\[([^\\]]+)\\]");
         Matcher bracketMatcher = bracketPattern.matcher(expression);
         int index = 1;
         while (bracketMatcher.find()) {
             String bracketExpression = bracketMatcher.group(1);
             if (functions.stream().anyMatch(i -> bracketExpression.contains(i.getFunctionName()))) {
-                processExpression(bracketExpression, stepVariable, response);
+                processExpression(bracketExpression, stepVariable, response, resultType);
                 expression = expression.replace("[" + bracketExpression + "]", "[" + index + "]");
                 index++;
             }
@@ -473,35 +527,54 @@ public class GrammarCheckUtils {
         return expression;
     }
 
-    public List<String> convertToPostfix(List<String> tokens, Map<String, FunctionMetadata> operatorMap) {
-        List<String> output = new ArrayList<>();
-        Deque<String> stack = new ArrayDeque<>();
-        for (String token : tokens) {
-            if (operatorMap.containsKey(token)) {
-                stack.push(token);
-            } else if (token.equals(",")) {
-                while (!stack.isEmpty() && !stack.peek().equals("(")) {
-                    output.add(stack.pop());
+    private List<Token> toPostfix(List<Token> tokens, List<String> functionNames, Map<String, FunctionMetadata> operatorMap) {
+        List<Token> outputQueue = new ArrayList<>();
+        Stack<Token> operatorStack = new Stack<>();
+
+        for (Token token : tokens) {
+            String value = token.getValue();
+            if (functionNames.contains(value)) {
+                operatorStack.push(token);
+            } else if (operatorMap.containsKey(value)) {
+                FunctionMetadata functionMetadata = operatorMap.get(value);
+                while (!operatorStack.isEmpty() && operatorMap.containsKey(operatorStack.peek().getValue())) {
+                    String op = operatorStack.peek().getValue();
+                    FunctionMetadata functionMetadata1 = operatorMap.get(op);
+                    if ((functionMetadata.getOperatorAssociativity().equals("left") && functionMetadata.getOperatorPrecedence() <= functionMetadata1.getOperatorPrecedence()) ||
+                            (functionMetadata.getOperatorAssociativity().equals("right") && functionMetadata.getOperatorPrecedence() < functionMetadata1.getOperatorPrecedence())) {
+                        outputQueue.add(operatorStack.pop());
+                    } else {
+                        break;
+                    }
                 }
-            } else if (token.equals("(")) {
-                stack.push(token);
-            } else if (token.equals(")")) {
-                while (!stack.isEmpty() && !stack.peek().equals("(")) {
-                    output.add(stack.pop());
+                operatorStack.push(token);
+            } else if (value.equals("(")) {
+                operatorStack.push(token);
+            } else if (value.equals(")")) {
+                while (!operatorStack.isEmpty() && !operatorStack.peek().getValue().equals("(")) {
+                    outputQueue.add(operatorStack.pop());
                 }
-                stack.pop(); // Pop the '('
-                if (!stack.isEmpty() && operatorMap.containsKey(stack.peek())) {
-                    output.add(stack.pop());
+                if (!operatorStack.isEmpty() && operatorStack.peek().getValue().equals("(")) {
+                    operatorStack.pop(); // Remove "("
+                }
+                if (!operatorStack.isEmpty() && functionNames.contains(operatorStack.peek().getValue())) {
+                    outputQueue.add(operatorStack.pop()); // Add function to the output queue
                 }
             } else {
-                output.add(token);
+                outputQueue.add(token); // If it's a number or variable
             }
         }
-        while (!stack.isEmpty()) {
-            output.add(stack.pop());
+
+        while (!operatorStack.isEmpty()) {
+            Token leftOverToken = operatorStack.pop();
+            if (!leftOverToken.getValue().equals("(")) {  // Ensure no leftover '(' are added to the output
+                outputQueue.add(leftOverToken);
+            }
         }
-        return output;
+
+        return outputQueue;
     }
+
 
     public List<String> extractPatterns(String input) {
         // 正则表达式，匹配${...}格式

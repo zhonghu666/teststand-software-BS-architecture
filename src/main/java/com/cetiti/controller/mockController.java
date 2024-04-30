@@ -71,6 +71,75 @@ public class mockController {
 
     @Resource
     private GrammarCheckUtils grammarCheckUtils;
+    // Operator precedence map
+    private static final Map<String, Integer> operatorPrecedence = new HashMap<>();
+    private static final Map<String, String> operatorAssociativity = new HashMap<>();
+
+    static {
+        operatorPrecedence.put("=", 1);
+        operatorPrecedence.put("+=", 1);
+        operatorPrecedence.put("-=", 1);
+        operatorPrecedence.put("*=", 1);
+        operatorPrecedence.put("/=", 1);
+        operatorPrecedence.put("%=", 1);
+        operatorPrecedence.put("^=", 1);
+        operatorPrecedence.put("&=", 1);
+        operatorPrecedence.put("|=", 1);
+        operatorPrecedence.put("&&", 2);
+        operatorPrecedence.put("||", 2);
+        operatorPrecedence.put("==", 3);
+        operatorPrecedence.put("!=", 3);
+        operatorPrecedence.put("<", 4);
+        operatorPrecedence.put("<=", 4);
+        operatorPrecedence.put(">", 4);
+        operatorPrecedence.put(">=", 4);
+        operatorPrecedence.put("+", 5);
+        operatorPrecedence.put("-", 5);
+        operatorPrecedence.put("*", 6);
+        operatorPrecedence.put("/", 6);
+        operatorPrecedence.put("%", 6);
+        operatorPrecedence.put("&", 7);
+        operatorPrecedence.put("|", 7);
+        operatorPrecedence.put("^", 7);
+        operatorPrecedence.put("~", 7);  // Unary bitwise NOT
+        operatorPrecedence.put("<<", 8);
+        operatorPrecedence.put(">>", 8);
+        operatorPrecedence.put("!", 9);  // Unary logical NOT
+        operatorPrecedence.put("++", 10); // Unary increment
+        operatorPrecedence.put("--", 10); // Unary decrement
+
+        // Operator associativity map
+        operatorAssociativity.put("=", "right");
+        operatorAssociativity.put("+=", "right");
+        operatorAssociativity.put("-=", "right");
+        operatorAssociativity.put("*=", "right");
+        operatorAssociativity.put("/=", "right");
+        operatorAssociativity.put("%=", "right");
+        operatorAssociativity.put("^=", "right");
+        operatorAssociativity.put("&=", "right");
+        operatorAssociativity.put("|=", "right");
+        operatorAssociativity.put("&&", "left");
+        operatorAssociativity.put("||", "left");
+        operatorAssociativity.put("==", "left");
+        operatorAssociativity.put("!=", "left");
+        operatorAssociativity.put("<", "left");
+        operatorAssociativity.put("<=", "left");
+        operatorAssociativity.put(">", "left");
+        operatorAssociativity.put(">=", "left");
+        operatorAssociativity.put("+", "left");
+        operatorAssociativity.put("-", "left");
+        operatorAssociativity.put("*", "left");
+        operatorAssociativity.put("/", "left");
+        operatorAssociativity.put("%", "left");
+        operatorAssociativity.put("&", "left");
+        operatorAssociativity.put("|", "left");
+        operatorAssociativity.put("^", "left");
+        operatorAssociativity.put("<<", "left");
+        operatorAssociativity.put(">>", "left");
+        operatorAssociativity.put("!", "right");  // Unary logical NOT is right associative
+        operatorAssociativity.put("++", "right"); // Unary increment is right associative
+        operatorAssociativity.put("--", "right"); // Unary decrement is right associative
+    }
 
 
     @PostMapping("function")
@@ -79,6 +148,8 @@ public class mockController {
         for (function function : functions) {
             FunctionMetadata functionMetadata = new FunctionMetadata();
             BeanUtils.copyProperties(function, functionMetadata);
+            functionMetadata.setOperatorPrecedence(operatorPrecedence.get(functionMetadata.getFunctionName()));
+            functionMetadata.setOperatorAssociativity(operatorAssociativity.get(functionMetadata.getFunctionName()));
             mongoTemplate.save(functionMetadata);
         }
         List<FunctionMetadata> all = mongoTemplate.findAll(FunctionMetadata.class);
@@ -255,11 +326,11 @@ public class mockController {
     }
 
     @PostMapping("test4")
-    public void test4(@RequestBody String s, @RequestParam String id) {
+    public void test4(@RequestBody String s, @RequestParam String id, @RequestParam String resultType) {
         BracketValidationResponse bracketValidationResponse = new BracketValidationResponse();
         StepVariable stepVariable = cacheService.getStepVariable(id);
         s = s.replace(" ", "").replaceAll("\\s+", "");
-        grammarCheckUtils.processExpression(s, stepVariable, bracketValidationResponse);
+        grammarCheckUtils.processExpression(s, stepVariable, bracketValidationResponse, resultType);
         System.out.println(JSON.toJSON(bracketValidationResponse));
     }
 

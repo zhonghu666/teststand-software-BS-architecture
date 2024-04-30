@@ -37,4 +37,10 @@ public class FunctionMetadata implements Serializable {
     @ApiModelProperty("参数描述")
     private String paramDesc;
 
+    @ApiModelProperty("操作符优先级")
+    private Integer operatorPrecedence;
+
+    @ApiModelProperty("操作符结合性")
+    private String operatorAssociativity;
+
 }

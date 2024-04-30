@@ -11,6 +11,7 @@ import java.util.List;
 public class BracketValidationResponse implements Serializable {
     private boolean isValid;
     private List<ErrorMsg> errorMessages;
+    private String returnErrorMsg;
 
     public BracketValidationResponse() {
         this.isValid = true;
