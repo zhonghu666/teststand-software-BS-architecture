@@ -167,7 +167,6 @@ public abstract class StepBase implements Serializable {
                     }
                 }
             }
-            step.addNestedAttribute("type", type, "步骤类型");
         } catch (Exception e) {
             log.error("步骤:{}执行异常", id, e);
             step = StepVariable.RESULT_Fail(StepStatus.ERROR, e.getMessage());
@@ -195,6 +194,7 @@ public abstract class StepBase implements Serializable {
             }
         }
         //插入RunState 内容
+        step.addNestedAttribute("type", type, "步骤类型");
         step.addNestedAttribute("resultRecordStatus", resultRecordStatus != null ? resultRecordStatus : 1, "是否进入报告");
         String stepPath = "RunState.SequenceFile.Data.Seq." + testSequenceName + "." + scope + "." + name + "[" + id + "]";
         stepVariable.addNestedAttribute(stepPath, step, name);

@@ -9,6 +9,7 @@ import com.cetiti.entity.StepVariable;
 import com.cetiti.response.BracketValidationResponse;
 import com.cetiti.service.impl.CacheService;
 import lombok.Data;
+import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.data.mongodb.core.MongoTemplate;
 import org.springframework.stereotype.Component;
@@ -20,6 +21,7 @@ import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 @Component
+@Slf4j
 public class GrammarCheckUtils {
 
     @Resource
@@ -231,13 +233,13 @@ public class GrammarCheckUtils {
         }
         if ("NONE".equals(resultType) && expressionResultType != null) {
             response.setReturnErrorMsg("The window does not need to return, but return expressionResultType :" + expressionResultType);
-            if (response.isValid()){
+            if (response.isValid()) {
                 response.setValid(false);
             }
         } else if (!"NONE".equals(resultType)) {
             if (expressionResultType == null || !expressionResultType.equals(resultType)) {
                 response.setReturnErrorMsg("The expression returned does not meet the window requirements, need:" + resultType + ", but got:" + expressionResultType);
-                if (response.isValid()){
+                if (response.isValid()) {
                     response.setValid(false);
                 }
             }
@@ -267,14 +269,14 @@ public class GrammarCheckUtils {
      */
     private static void legalVerify(List<Token> tokens, BracketValidationResponse response, List<FunctionMetadata> functions) {
         Pattern numberPattern = Pattern.compile("-?\\d+(\\.\\d+)?"); // Pattern for numbers (integer and floating point)
-        Pattern identifierPattern = Pattern.compile("[a-zA-Z_]\\w*"); // Pattern for valid identifiers (variable names)
+//        Pattern identifierPattern = Pattern.compile("[a-zA-Z_]\\w*"); // Pattern for valid identifiers (variable names)
         Pattern stringPattern = Pattern.compile("\"[^\"]*\"|'[^']*'"); // Pattern for string literals
         for (Token token : tokens) {
             String value = token.getValue();
             if (!isValidPrefix(value)
                     && functions.stream().noneMatch(i -> i.getFunctionName().equals(value)) &&
                     !numberPattern.matcher(value).matches()
-                    && !identifierPattern.matcher(value).matches()
+                 //   && !identifierPattern.matcher(value).matches()
                     && !VALID_BRACKETS.contains(value)
                     && !stringPattern.matcher(value).matches()) {
                 System.out.println(value);
@@ -364,8 +366,12 @@ public class GrammarCheckUtils {
                 operatorResultType = operatorParamVerify(operatorMap, stepVariable, response, paramToken);
             }
             // 检查运算结果类型是否符合预期的参数类型
-            if (operatorResultType == null || !operatorResultType.equals(paramType)) {
-                response.addError("Function: " + function.getFunctionName() + ":" + (j + 1) + " parameter type error", paramToken.get(0).getStartPos(), paramToken.get(paramToken.size() - 1).getEndPos());
+            if (operatorResultType == null) {
+                response.addError("Function: " + function.getFunctionName() + ":" + (j + 1) + " parameter is null", paramToken.get(0).getStartPos(), paramToken.get(paramToken.size() - 1).getEndPos());
+            } else {
+                if (!paramType.equals(ValueType.OBJECT.name()) && !operatorResultType.equals(paramType)) {
+                    response.addError("Function: " + function.getFunctionName() + ":" + (j + 1) + " parameter type error", paramToken.get(0).getStartPos(), paramToken.get(paramToken.size() - 1).getEndPos());
+                }
             }
             j++;
         }
@@ -412,7 +418,8 @@ public class GrammarCheckUtils {
         }
         FunctionMetadata functionMetadata = operatorMap.get(token.getValue());
         if (functionMetadata == null) {
-            response.addError("operator: " + token.getValue() + " not fond", token.getStartPos(), token.getEndPos());
+            log.error("operator:{} not fond", token.getValue());
+            //response.addError("operator: " + token.getValue() + " not fond", token.getStartPos(), token.getEndPos());
         } else {
             operatorResultType = functionMetadata.getReturnType();
         }

@@ -364,20 +364,20 @@ public class ExpressionParserUtils {
        // String expression = "CalculateRelativeDistance(list.[GetNumElements(list)-1].hv_lat,list.[GetNumElements(list)-1].hv_lon,Locals.Data.lat,Locals.Data.lon)";
        // String expression = "Max(Locals.Data.RSI.non,Locals.num1)";
         //String expression = "Asc(Locals.Data.RSI.uuid)";
-        String expression = "'sda' >12";
+        String expression = "Locals.Data.BSM.status";
         //currencyExecution(expression, step, null, "121");
         //Object valueByPath = step.getValueByPath("Locals.Data.BSM.speed");
         //System.out.println(valueByPath);
-        //Integer b = conditionalExecution(expression, step, null, "12");
-        //System.out.println(b);
+        Integer b = conditionalExecution(expression, step, null, "12");
+        System.out.println(b);
        /* currencyExecution(expression, step, null, "1212");
         Object valueByPath = step.getValueByPath("Locals.Data.RSI.xd");
         System.out.println(valueByPath);*/
         //splitExpression(expression);
         /*   Object execute = AviatorEvaluator.execute("1 & 1");
         System.out.println(execute);*/
-        Map<String, Object> stringObjectMap = expressionParsingExecution(expression, step, null, "121");
-        System.out.println(stringObjectMap);
+        //Map<String, Object> stringObjectMap = expressionParsingExecution(expression, step, null, "121");
+        //System.out.println(stringObjectMap);
         //List<Object> allFinalValues = step.fetchAllFinalValues();
         //System.out.println(allFinalValues);
     }

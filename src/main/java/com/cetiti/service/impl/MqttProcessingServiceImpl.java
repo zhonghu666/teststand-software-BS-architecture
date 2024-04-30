@@ -253,7 +253,7 @@ public class MqttProcessingServiceImpl implements MqttProcessingService {
             if (map.size() < 2) {
                 return;
             }
-            List<CustomSignalParesRequest> customSignalParesRequests = redisUtil.hGetAll(uuid + "parseCustomSignal", CustomSignalParesRequest.class);
+             List<CustomSignalParesRequest> customSignalParesRequests = redisUtil.hGetAll(uuid + "parseCustomSignal", CustomSignalParesRequest.class);
             customSignalParesRequests.forEach(i -> {
                 Object response = null;
                 try {
