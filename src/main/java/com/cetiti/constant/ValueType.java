@@ -29,6 +29,10 @@ public enum ValueType {
     /**
      * 所有类型
      */
-    OBJECT
+    OBJECT,
 
+    /**
+     * 无返回
+     */
+    NONE
 }

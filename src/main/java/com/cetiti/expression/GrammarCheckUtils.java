@@ -231,7 +231,7 @@ public class GrammarCheckUtils {
             List<Token> postfix = toPostfix(tokens, functionNames, operatorMap);
             expressionResultType = operatorParamVerify(operatorMap, stepVariable, response, postfix);
         }
-        if ("NONE".equals(resultType) && expressionResultType != null) {
+        if ("NONE".equals(resultType) && !(expressionResultType == null || "NONE".equals(expressionResultType))) {
             response.setReturnErrorMsg("The window does not need to return, but return expressionResultType :" + expressionResultType);
             if (response.isValid()) {
                 response.setValid(false);
@@ -244,7 +244,6 @@ public class GrammarCheckUtils {
                 }
             }
         }
-
     }
 
     private boolean isOperator(String expr, int index) {
@@ -276,7 +275,7 @@ public class GrammarCheckUtils {
             if (!isValidPrefix(value)
                     && functions.stream().noneMatch(i -> i.getFunctionName().equals(value)) &&
                     !numberPattern.matcher(value).matches()
-                 //   && !identifierPattern.matcher(value).matches()
+                    //   && !identifierPattern.matcher(value).matches()
                     && !VALID_BRACKETS.contains(value)
                     && !stringPattern.matcher(value).matches()) {
                 System.out.println(value);
@@ -464,8 +463,18 @@ public class GrammarCheckUtils {
             }
             return ValueType.NUMBER.name();
         } else if (operator.getFunctionType().equals("Assignment")) {
-            response.addError("Operators Arithmetic and Bitwise parameter types error " + operatorParam.getValue(), operatorParam.getStartPos(), operatorParam.getEndPos());
-            return null;
+            if (!isValidPrefix(param1.getValue())) {
+                response.addError("Operators Assignment must assign values to variables " + param1.getValue(), param1.getStartPos(), param1.getEndPos());
+            } else if (operatorParam.getValue().equals("=")) {
+                if (!param1Type.equals(param2Type)) {
+                    response.addError("Operators = parameter types must be consistent " + operatorParam.getValue(), operatorParam.getStartPos(), operatorParam.getEndPos());
+                }
+            } else {
+                if (!ValueType.NUMBER.name().equals(param1Type) || !ValueType.NUMBER.name().equals(param2Type)) {
+                    response.addError("Operators Assignment parameter types must be NUMBER " + operatorParam.getValue(), operatorParam.getStartPos(), operatorParam.getEndPos());
+                }
+            }
+            return ValueType.NONE.name();
         } else if (operator.getFunctionType().equals("Comparison")) {
             if (!param1Type.equals(param2Type)) {
                 response.addError("Operators Comparison parameter types inconsistent " + operatorParam.getValue(), operatorParam.getStartPos(), operatorParam.getEndPos());

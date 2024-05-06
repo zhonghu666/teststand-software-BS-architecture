@@ -104,7 +104,7 @@ public class ExpressionParserUtils {
                     Object currentValue = stepVariable.getValueByPath(variablePath);
                     if (currentValue instanceof Number && !(result instanceof List)) {
                         Number currentNumber = (Number) currentValue;
-                        Number resultNumber = (Number) result;
+                        Number resultNumber = 0;
                         if (result != null) {
                             resultNumber = (Number) result;
                         }
@@ -146,7 +146,7 @@ public class ExpressionParserUtils {
                 } else {
                     stepVariable.addNestedAttributeObject(variablePath, result, "");
                 }
-                cacheService.saveOrUpdateStepVariable(testSequenceId, stepVariable);
+               // cacheService.saveOrUpdateStepVariable(testSequenceId, stepVariable);
             } else {
                 throw new BusinessException("表达式格式错误: " + expression);
             }
@@ -361,18 +361,18 @@ public class ExpressionParserUtils {
         AviatorEvaluator.addFunction(new SplitFunction());
         AviatorEvaluator.addFunction(new AscFunction());
         AviatorEvaluator.addFunction(new MaxFunction());
-       // String expression = "CalculateRelativeDistance(list.[GetNumElements(list)-1].hv_lat,list.[GetNumElements(list)-1].hv_lon,Locals.Data.lat,Locals.Data.lon)";
-       // String expression = "Max(Locals.Data.RSI.non,Locals.num1)";
+        // String expression = "CalculateRelativeDistance(list.[GetNumElements(list)-1].hv_lat,list.[GetNumElements(list)-1].hv_lon,Locals.Data.lat,Locals.Data.lon)";
+        // String expression = "Max(Locals.Data.RSI.non,Locals.num1)";
         //String expression = "Asc(Locals.Data.RSI.uuid)";
-        String expression = "Locals.Data.BSM.status";
+        String expression = "Locals.Data.RSI.uuid+=1";
         //currencyExecution(expression, step, null, "121");
         //Object valueByPath = step.getValueByPath("Locals.Data.BSM.speed");
         //System.out.println(valueByPath);
-        Integer b = conditionalExecution(expression, step, null, "12");
-        System.out.println(b);
-       /* currencyExecution(expression, step, null, "1212");
-        Object valueByPath = step.getValueByPath("Locals.Data.RSI.xd");
-        System.out.println(valueByPath);*/
+        //Integer b = conditionalExecution(expression, step, null, "12");
+        //System.out.println(b);
+        currencyExecution(expression, step, null, "1212");
+        Object valueByPath = step.getValueByPath("Locals.Data.RSI.uuid");
+        System.out.println(valueByPath);
         //splitExpression(expression);
         /*   Object execute = AviatorEvaluator.execute("1 & 1");
         System.out.println(execute);*/
