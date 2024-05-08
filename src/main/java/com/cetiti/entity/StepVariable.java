@@ -259,6 +259,16 @@ public class StepVariable implements Serializable {
         return step;
     }
 
+    public static StepVariable RESULT_Fail(StepStatus status, String errorMsg, StepVariable step) {
+        step.addNestedAttribute("Result.Error.Code", ErrorCode.COMMON_FAIL.getCode(), "code");
+        step.addNestedAttribute("Result.Error.Msg", errorMsg, "Msg");
+        step.addNestedAttribute("Result.Error.Occurred", ErrorCode.COMMON_FAIL.getOccurred(), "Occurred");
+        step.addNestedAttribute("Result.Status", status.getCode(), "Status");
+        step.addNestedAttribute("Result.ReportTest", "", "ReportTest");
+        step.addNestedAttribute("Result.Common", new StepVariable(), "Common");
+        step.addNestedAttribute("Result.DataSource", "", "DataSource");
+        return step;
+    }
 
     public static StepVariable RESULT(String stepType, TestStepType subType, StepStatus status, ErrorCode errorCode) {
         StepVariable step = new StepVariable();

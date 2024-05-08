@@ -270,7 +270,7 @@ public class TestSequenceServiceImpl implements TestSequenceService {
         cacheService.saveOrUpdateStepVariable(step.getTestSequenceId(), testSequence.getStepVariable());
         StepVariable execute = step.execute(cacheService, request.getParam());
         StepExecuteResponse stepExecuteResponse = new StepExecuteResponse(execute);
-        //cacheService.deleteStepVariable(step.getTestSequenceId());
+        cacheService.deleteStepVariable(step.getTestSequenceId());
         return stepExecuteResponse;
     }
 

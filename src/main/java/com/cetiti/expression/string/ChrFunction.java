@@ -28,5 +28,9 @@ public class ChrFunction extends AbstractFunction {
         Map<String, Object> env = new HashMap<>();
         String expression = "Chr(27)";
         System.out.println(AviatorEvaluator.execute(expression, env));
+        int num = 27;
+        String str = String.valueOf(num);
+        System.out.println(str); // Output: 27
+
     }
 }

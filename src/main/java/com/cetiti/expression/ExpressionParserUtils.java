@@ -8,6 +8,7 @@ import com.cetiti.constant.ValueType;
 import com.cetiti.entity.CircularConfig;
 import com.cetiti.entity.FunctionMetadata;
 import com.cetiti.entity.StepVariable;
+import com.cetiti.entity.TestSequence;
 import com.cetiti.expression.array.ContainsFunction;
 import com.cetiti.expression.array.GetArrayBoundsFunction;
 import com.cetiti.expression.array.GetNumElementsFunction;
@@ -37,6 +38,9 @@ import static com.cetiti.constant.FlowControlType.F_CONTINUE;
 
 @Slf4j
 public class ExpressionParserUtils {
+
+    private static final Pattern UUID_PATTERN = Pattern.compile("[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}(\\:[A-Za-z0-9_.]+)*");
+
 
     /**
      * 数值表达式执行
@@ -146,7 +150,7 @@ public class ExpressionParserUtils {
                 } else {
                     stepVariable.addNestedAttributeObject(variablePath, result, "");
                 }
-               // cacheService.saveOrUpdateStepVariable(testSequenceId, stepVariable);
+                // cacheService.saveOrUpdateStepVariable(testSequenceId, stepVariable);
             } else {
                 throw new BusinessException("表达式格式错误: " + expression);
             }
@@ -217,56 +221,44 @@ public class ExpressionParserUtils {
     private static Map<String, Object> replacePatternsWithValues(String expression, StepVariable stepVariable, CacheService cacheService, String testSequenceId) {
         List<String> tokens = new ArrayList<>();
         int index = 0;
+        GrammarCheckUtils grammarCheckUtils = new GrammarCheckUtils();
+
         while (index < expression.length()) {
-            char currentChar = expression.charAt(index);
-            // 检查是否是字符串字面量的开始
-            if (currentChar == '\'' || currentChar == '\"') {
-                int start = index;
-                index++; // 移动到引号之后的字符
-                // 寻找匹配的闭合引号
-                while (index < expression.length() && expression.charAt(index) != currentChar) {
-                    index++;
-                }
-                // 检查是否找到闭合引号
-                if (index >= expression.length()) {
-                    throw new BusinessException("Unmatched quotes in expression.");
-                }
-                // 包括闭合引号
-                tokens.add(expression.substring(start, index + 1));
-                index++; // 移动到闭合引号之后的字符
-            } else if (Character.isLetterOrDigit(currentChar) || currentChar == '.' || currentChar == '[' || currentChar == ']' || currentChar == '_') {
-                int varStart = index;
-                while (index < expression.length() && (Character.isLetterOrDigit(expression.charAt(index)) || expression.charAt(index) == '.' || expression.charAt(index) == '[' || expression.charAt(index) == ']' || expression.charAt(index) == '_')) {
-                    if (expression.charAt(index) == '[') {
-                        index = expression.indexOf(']', index);
-                        if (index == -1) {
-                            throw new BusinessException("Unmatched brackets in expression.");
-                        }
-                    }
-                    index++;
-                }
-                String token = expression.substring(varStart, index);
-                if (!token.isEmpty()) {
-                    tokens.add(token);
-                }
-            } else {
+            // Skip spaces and operators
+            while (index < expression.length() && (Character.isWhitespace(expression.charAt(index)) || grammarCheckUtils.isOperator(expression, index))) {
+                index += grammarCheckUtils.lengthOfOperator(expression, index) > 0 ? grammarCheckUtils.lengthOfOperator(expression, index) : 1;
+            }
+
+            if (index >= expression.length()) break;
+
+            int start = index;
+
+            // Check for UUID pattern
+            Matcher uuidMatcher = UUID_PATTERN.matcher(expression.substring(index));
+            if (uuidMatcher.find() && uuidMatcher.start() == 0) {
+                String uuidToken = uuidMatcher.group();
+                tokens.add(uuidToken);
+                index += uuidToken.length();
+                continue;
+            }
+
+            // Capture token
+            while (index < expression.length() && !grammarCheckUtils.isOperator(expression, index) && !Character.isWhitespace(expression.charAt(index))) {
                 index++;
             }
-            // 跳过非标识符字符
-            while (index < expression.length() && !(Character.isLetterOrDigit(expression.charAt(index)) || expression.charAt(index) == '_' || expression.charAt(index) == '\'' || expression.charAt(index) == '\"')) {
-                index++;
+
+            if (start != index) {
+                tokens.add(expression.substring(start, index));
             }
         }
         // 处理提取出的每个变量路径
         Map<String, Object> env = new HashMap<>();
         for (String token : tokens) {
-            if (!token.isEmpty() && (Character.isLetter(token.charAt(0)) || token.charAt(0) == '_') && !(token.startsWith("'") && token.endsWith("'")) && !(token.startsWith("\"") && token.endsWith("\""))) {
-                if (GrammarCheckUtils.isValidPrefix(token)) {
-                    String convertedToken = convertVariableName(token);
-                    Object value = getStepVariable(token, stepVariable, cacheService, testSequenceId);
-                    Assert.dataHandle(value != null, "参数:" + token + "值为null，无效数据");
-                    env.put(convertedToken, value);
-                }
+            if (GrammarCheckUtils.isValidPrefix(token)) {
+                String convertedToken = convertVariableName(token);
+                Object value = getStepVariable(token, stepVariable, cacheService, testSequenceId);
+                Assert.dataHandle(value != null, "参数:" + token + "值为null，无效数据");
+                env.put(convertedToken, value);
             }
         }
         return env;
@@ -314,6 +306,21 @@ public class ExpressionParserUtils {
         variableName = variableName.replaceAll(regexDots, "_");
         String regexBrackets = "\\[|\\]";
         variableName = variableName.replaceAll(regexBrackets, "");
+        // 正则表达式匹配 UUID 格式
+        String uuidRegex = "\\b[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\\b";
+        Pattern uuidPattern = Pattern.compile(uuidRegex);
+        Matcher matcher = uuidPattern.matcher(variableName);
+        // 遍历匹配的 UUID，并将 '-' 替换为 '_'
+        StringBuffer result = new StringBuffer();
+        while (matcher.find()) {
+            String uuid = matcher.group(); // 获取匹配到的 UUID
+            String uuidWithUnderscore = uuid.replace("-", "_"); // 将 '-' 替换为 '_'
+            uuidWithUnderscore = "UUID" + uuidWithUnderscore;
+            matcher.appendReplacement(result, uuidWithUnderscore); // 替换并追加到结果中
+        }
+        matcher.appendTail(result); // 追加尾部的内容
+        variableName = result.toString();
+        variableName = variableName.replaceAll(":", "");
         return variableName;
     }
 
@@ -341,17 +348,17 @@ public class ExpressionParserUtils {
         s1.addNestedAttribute("speed", 12, "");
         s1.addNestedAttribute("hv_lon", 116.48906957584057, "");
         s1.addNestedAttribute("hv_lat", 39.72840063000842, "");
-        step.addToListAtPath("list", s1);
+        step.addToListAtPath("Locals.list", s1);
         StepVariable s2 = new StepVariable();
         s2.addNestedAttribute("speed", 32, "");
         s2.addNestedAttribute("hv_lon", 120.00967773538383, "");
         s2.addNestedAttribute("hv_lat", 30.27613420982849, "");
-        step.addToListAtPath("list", s2);
+        step.addToListAtPath("Locals.list", s2);
         StepVariable s3 = new StepVariable();
         s3.addNestedAttribute("speed", 43, "");
         s3.addNestedAttribute("hv_lon", 120.00967773538383, "");
         s3.addNestedAttribute("hv_lat", 30.27613420982849, "");
-        step.addToListAtPath("list", s3);
+        step.addToListAtPath("Locals.list", s3);
 
         System.out.println(JSON.toJSON(step));
         AviatorEvaluator.addFunction(new ContainsFunction());
@@ -361,25 +368,23 @@ public class ExpressionParserUtils {
         AviatorEvaluator.addFunction(new SplitFunction());
         AviatorEvaluator.addFunction(new AscFunction());
         AviatorEvaluator.addFunction(new MaxFunction());
-        // String expression = "CalculateRelativeDistance(list.[GetNumElements(list)-1].hv_lat,list.[GetNumElements(list)-1].hv_lon,Locals.Data.lat,Locals.Data.lon)";
+        String expression = "CalculateRelativeDistance(Locals.list.[GetNumElements(Locals.list)-1].hv_lat,Locals.list.[GetNumElements(Locals.list)-1].hv_lon,Locals.Data.lat,Locals.Data.lon)";
         // String expression = "Max(Locals.Data.RSI.non,Locals.num1)";
         //String expression = "Asc(Locals.Data.RSI.uuid)";
-        String expression = "Locals.Data.RSI.uuid+=1";
+        //String expression = "Locals.Data.RSI.uuid+=1";
         //currencyExecution(expression, step, null, "121");
         //Object valueByPath = step.getValueByPath("Locals.Data.BSM.speed");
         //System.out.println(valueByPath);
         //Integer b = conditionalExecution(expression, step, null, "12");
         //System.out.println(b);
-        currencyExecution(expression, step, null, "1212");
+    /*    currencyExecution(expression, step, null, "1212");
         Object valueByPath = step.getValueByPath("Locals.Data.RSI.uuid");
-        System.out.println(valueByPath);
+        System.out.println(valueByPath);*/
         //splitExpression(expression);
         /*   Object execute = AviatorEvaluator.execute("1 & 1");
         System.out.println(execute);*/
-        //Map<String, Object> stringObjectMap = expressionParsingExecution(expression, step, null, "121");
-        //System.out.println(stringObjectMap);
-        //List<Object> allFinalValues = step.fetchAllFinalValues();
-        //System.out.println(allFinalValues);
+        Map<String, Object> stringObjectMap = expressionParsingExecution(expression, step, null, "121");
+        System.out.println(stringObjectMap);
     }
 
     private static ScriptEngine engine = new ScriptEngineManager().getEngineByName("nashorn");
@@ -480,8 +485,11 @@ public class ExpressionParserUtils {
     public static <T> T getStepVariable(String path, StepVariable stepVariable, CacheService cacheService, String testSequenceId) {
         if (path.contains(":")) {
             String[] split = path.split(":");
-            StepVariable other = cacheService.getStepVariable(split[0]);
-            return other.getValueByPath(path);
+            MongoTemplate mongoTemplate = ApplicationContextHolder.getBean(MongoConfig.MONGO_TEMPLATE, MongoTemplate.class);
+            TestSequence otherTestSequence = mongoTemplate.findById(split[0], TestSequence.class);
+            Assert.handle(otherTestSequence != null, "序列不存在");
+            StepVariable other = otherTestSequence.getStepVariable();
+            return other.getValueByPath(split[1]);
         } else if (path.startsWith("SequenceData")) {
             StepVariable sequenceData = cacheService.getStepVariable("SequenceData-" + testSequenceId);
             Assert.handle(sequenceData != null, "数据调用没有数据，请检查");

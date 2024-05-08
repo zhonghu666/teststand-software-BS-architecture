@@ -6,6 +6,7 @@ import com.cetiti.config.MongoConfig;
 import com.cetiti.constant.ValueType;
 import com.cetiti.entity.FunctionMetadata;
 import com.cetiti.entity.StepVariable;
+import com.cetiti.entity.TestSequence;
 import com.cetiti.response.BracketValidationResponse;
 import com.cetiti.service.impl.CacheService;
 import lombok.Data;
@@ -15,6 +16,7 @@ import org.springframework.data.mongodb.core.MongoTemplate;
 import org.springframework.stereotype.Component;
 
 import javax.annotation.Resource;
+import java.lang.reflect.TypeVariable;
 import java.util.*;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -27,6 +29,12 @@ public class GrammarCheckUtils {
     @Resource
     private CacheService cacheService;
 
+    @Resource(name = MongoConfig.MONGO_TEMPLATE)
+    private MongoTemplate mongoTemplate;
+
+    /**
+     * 变量命名起始
+     */
     private static final Set<String> VALID_PREFIXES = Set.of(
             "Locals",
             "RunState",
@@ -36,12 +44,23 @@ public class GrammarCheckUtils {
     );
     private static final Set<String> VALID_BRACKETS = new HashSet<>(Arrays.asList("(", ")", "[", "]", "{", "}", ",", "'", "'"));
 
-    private static final String[] operators = {
+    public static final String[] operators = {
             "==", "!=", "<>", ">=", "<=", ">>", "<<", "++", "--",
             "+=", "-=", "*=", "/=", "%=", "^=", "&=", "|=", "&&", "||",
             "=", "+", "-", "*", "/", "%", "^", "&", "|", "~", ">", "<", "!", "(", ")", ","
     };
+    public boolean isOperator(String expr, int index) {
+        return lengthOfOperator(expr, index) > 0;
+    }
 
+    public int lengthOfOperator(String expr, int index) {
+        for (String op : operators) {
+            if (index + op.length() <= expr.length() && expr.substring(index, index + op.length()).equals(op)) {
+                return op.length();
+            }
+        }
+        return 0;  // No operator found at this position
+    }
     /**
      * 检查给字符串是否为参数。
      *
@@ -52,13 +71,28 @@ public class GrammarCheckUtils {
         if (input == null || input.isEmpty()) {
             return false;
         }
-        // 通过'.'分割字符串
-        String[] parts = input.split("\\.", 2);
-        // 检查是否存在至少一个分割部分，并且第一部分是否在有效前缀集合中
-        return parts.length >= 1 && VALID_PREFIXES.contains(parts[0]);
+        if (input.contains(":")) {
+            String regex = ":[^\\.]+";
+            Pattern pattern = Pattern.compile(regex);
+            Matcher matcher = pattern.matcher(input);
+            if (matcher.find()) {
+                String afterColon = matcher.group(0).substring(1); // 去除匹配结果中的冒号，获取冒号后到第一个点号之间的内容
+                return VALID_PREFIXES.contains(afterColon);
+            } else {
+                return false;
+            }
+        } else {
+            // 通过'.'分割字符串
+            String[] parts = input.split("\\.", 2);
+            // 检查是否存在至少一个分割部分，并且第一部分是否在有效前缀集合中
+            return parts.length >= 1 && VALID_PREFIXES.contains(parts[0]);
+        }
     }
 
 
+    /**
+     * 临时栈
+     */
     @Data
     private class Bracket {
         char type;
@@ -106,12 +140,27 @@ public class GrammarCheckUtils {
     }
 
 
+    /**
+     * 检查两个括号字符是否匹配。
+     * 这个方法主要用于验证一对括号字符是否为正确的开闭组合。
+     *
+     * @param opening 开括号字符
+     * @param closing 闭括号字符
+     * @return 如果开括号与闭括号匹配（如 '(' 和 ')'），则返回 true；否则返回 false。
+     */
     private boolean isMatchingPair(char opening, char closing) {
         return (opening == '(' && closing == ')') ||
                 (opening == '[' && closing == ']') ||
                 (opening == '{' && closing == '}');
     }
 
+
+    /**
+     * 根据开括号返回对应的闭括号
+     *
+     * @param opening 开括号
+     * @return
+     */
     private char getExpectedClosing(char opening) {
         switch (opening) {
             case '(':
@@ -143,10 +192,18 @@ public class GrammarCheckUtils {
 
     public static void main(String[] args) {
         GrammarCheckUtils grammarCheckUtils = new GrammarCheckUtils();
-        List<String> tokens = Arrays.asList("(", "(", "x", "+", "12", ")", "/", "23", "+", "v", "-", "(", "s", "<<", "21", ")", ")");
+        List<String> myList = new ArrayList<>();
+        myList.add("1");
+        Class<?> listClass = myList.getClass();
+        TypeVariable<?>[] typeParameters = listClass.getTypeParameters();
+        System.out.println(typeParameters[0].getName()); // Output: E
+
     }
 
 
+    /**
+     * 表达式解析内容临时存储对象
+     */
     @Data
     private class Token {
         String value;
@@ -163,8 +220,10 @@ public class GrammarCheckUtils {
     /**
      * 遍历分割后的表达式数组，并逐层识别和处理最内层的函数调用，直至所有的函数调用都被处理完毕。这种方法允许我们在解析过程中动态地判断函数是否含有嵌套，并在确认一个函数为最内层函数后立即进行处理和替换。
      *
-     * @param expression
-     * @return
+     * @param expression   表达式
+     * @param stepVariable 变量树
+     * @param response     异常栈
+     * @param resultType   返回类型
      */
     public void processExpression(String expression, StepVariable stepVariable, BracketValidationResponse response, String resultType) {
         List<Token> tokens = new ArrayList<>();
@@ -174,25 +233,39 @@ public class GrammarCheckUtils {
         Map<String, FunctionMetadata> functionMap = functions.stream().filter(i -> i.getType().equals("Functions")).collect(Collectors.toMap(FunctionMetadata::getFunctionName, a -> a));
         Map<String, FunctionMetadata> operatorMap = functions.stream().filter(i -> i.getType().equals("Operators")).collect(Collectors.toMap(FunctionMetadata::getFunctionName, a -> a));
         int index = 0;
+        // Regex to recognize UUID followed by optional colon and identifiers
+        Pattern uuidPattern = Pattern.compile(
+                "[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}(:[A-Za-z0-9_.]+)*");
+
         while (index < expression.length()) {
             int start = index;
-            while (index < expression.length() && !isOperator(expression, index)) {
-                index++;
-            }
-            if (start != index) {
-                tokens.add(new Token(expression.substring(start, index), start, index - 1));
+
+            // Check if current part matches a UUID pattern
+            Matcher uuidMatcher = uuidPattern.matcher(expression.substring(index));
+            if (uuidMatcher.find() && uuidMatcher.start() == 0) {
+                String uuidToken = uuidMatcher.group();
+                tokens.add(new Token(uuidToken, index, index + uuidToken.length() - 1));
+                index += uuidToken.length();
+                continue;
             }
 
-            int opLength = lengthOfOperator(expression, index);
-            if (opLength > 0) {
+            // Check for operators
+            if (isOperator(expression, index)) {
+                int opLength = lengthOfOperator(expression, index);
                 tokens.add(new Token(expression.substring(index, index + opLength), index, index + opLength - 1));
                 index += opLength;
-            }
-
-            while (index < expression.length() && expression.charAt(index) == ' ') {
-                index++;  // Skip spaces
+            } else {
+                // Handle identifiers or literals
+                start = index;
+                while (index < expression.length() && !isOperator(expression, index)) {
+                    index++;
+                }
+                if (start != index) {
+                    tokens.add(new Token(expression.substring(start, index), start, index - 1));
+                }
             }
         }
+        System.out.println(JSON.toJSON(tokens));
         legalVerify(tokens, response, functions);
         Stack<Integer> stack = new Stack<>();
         int i = 0;
@@ -231,12 +304,12 @@ public class GrammarCheckUtils {
             List<Token> postfix = toPostfix(tokens, functionNames, operatorMap);
             expressionResultType = operatorParamVerify(operatorMap, stepVariable, response, postfix);
         }
-        if ("NONE".equals(resultType) && !(expressionResultType == null || "NONE".equals(expressionResultType))) {
+        if (ValueType.NONE.name().equals(resultType) && !(expressionResultType == null || ValueType.NONE.name().equals(expressionResultType))) {
             response.setReturnErrorMsg("The window does not need to return, but return expressionResultType :" + expressionResultType);
             if (response.isValid()) {
                 response.setValid(false);
             }
-        } else if (!"NONE".equals(resultType)) {
+        } else if (!ValueType.NONE.name().equals(resultType)) {
             if (expressionResultType == null || !expressionResultType.equals(resultType)) {
                 response.setReturnErrorMsg("The expression returned does not meet the window requirements, need:" + resultType + ", but got:" + expressionResultType);
                 if (response.isValid()) {
@@ -246,18 +319,7 @@ public class GrammarCheckUtils {
         }
     }
 
-    private boolean isOperator(String expr, int index) {
-        return lengthOfOperator(expr, index) > 0;
-    }
 
-    private int lengthOfOperator(String expr, int index) {
-        for (String op : operators) {
-            if (index + op.length() <= expr.length() && expr.substring(index, index + op.length()).equals(op)) {
-                return op.length();
-            }
-        }
-        return 0;  // No operator found at this position
-    }
 
     /**
      * 校验表达式是否存在非法字符
@@ -268,16 +330,16 @@ public class GrammarCheckUtils {
      */
     private static void legalVerify(List<Token> tokens, BracketValidationResponse response, List<FunctionMetadata> functions) {
         Pattern numberPattern = Pattern.compile("-?\\d+(\\.\\d+)?"); // Pattern for numbers (integer and floating point)
-//        Pattern identifierPattern = Pattern.compile("[a-zA-Z_]\\w*"); // Pattern for valid identifiers (variable names)
         Pattern stringPattern = Pattern.compile("\"[^\"]*\"|'[^']*'"); // Pattern for string literals
         for (Token token : tokens) {
             String value = token.getValue();
+            boolean isBoolean = value.equals("true") || value.equals("false");
+            boolean isString = stringPattern.matcher(value).matches();
             if (!isValidPrefix(value)
                     && functions.stream().noneMatch(i -> i.getFunctionName().equals(value)) &&
                     !numberPattern.matcher(value).matches()
-                    //   && !identifierPattern.matcher(value).matches()
                     && !VALID_BRACKETS.contains(value)
-                    && !stringPattern.matcher(value).matches()) {
+                    && !(isString || isBoolean)) { // Check if string but not boolean
                 System.out.println(value);
                 response.addError("illegal characters " + value, token.getStartPos(), token.getEndPos());
             }
@@ -466,7 +528,7 @@ public class GrammarCheckUtils {
             if (!isValidPrefix(param1.getValue())) {
                 response.addError("Operators Assignment must assign values to variables " + param1.getValue(), param1.getStartPos(), param1.getEndPos());
             } else if (operatorParam.getValue().equals("=")) {
-                if (!param1Type.equals(param2Type)) {
+                if (!ValueType.LIST.name().equals(param1Type) && !param1Type.equals(param2Type)) {
                     response.addError("Operators = parameter types must be consistent " + operatorParam.getValue(), operatorParam.getStartPos(), operatorParam.getEndPos());
                 }
             } else {
@@ -502,9 +564,20 @@ public class GrammarCheckUtils {
      */
     private String getParamType(String param, StepVariable stepVariable) {
         if (isValidPrefix(param)) {
+            if (param.equals("SequenceData")) {
+                return ValueType.LIST.name();
+            }
+            if (param.contains(":")) {
+                String[] parts = param.split(":", 2);
+                TestSequence otherTestSequence = mongoTemplate.findById(parts[0], TestSequence.class);
+                ValueType typeByPath = otherTestSequence.getStepVariable().getTypeByPath(parts[1]);
+                return typeByPath != null ? typeByPath.name() : null;
+            }
             if (param.startsWith("SequenceData")) {
                 // 使用正则表达式删除所有方括号及其内容以及随后的点号
                 param = param.replaceAll("\\[.*?\\]\\.", "");
+            } else {
+                param = param.replaceAll("\\[.*\\]", "[0]");
             }
             ValueType paramType = stepVariable.getTypeByPath(param);
             if (paramType == null) {

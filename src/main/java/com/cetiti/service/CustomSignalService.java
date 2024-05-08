@@ -30,4 +30,11 @@ public interface CustomSignalService {
      * @return
      */
     Boolean removeCustomSignal(String name, String uuid);
+
+    /**
+     * 自定义信号语法校验
+     * @param request
+     * @return
+     */
+    BracketValidationResponse checkCustomSignalSyntax(CustomSignalParesRequest request);
 }

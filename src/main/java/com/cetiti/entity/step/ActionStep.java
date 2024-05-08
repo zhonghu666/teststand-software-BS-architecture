@@ -217,7 +217,7 @@ public class ActionStep extends StepBase {
                         cacheService.saveOrUpdateStepVariable(testSequenceId, stepVariable2);
                         MqttProcessingService mqttProcessingService = ApplicationContextHolder.getBean(MqttProcessingService.class);
                         if (!mqttProcessingService.waitForResponse(uuid)) {
-                            step = StepVariable.RESULT_Fail(StepStatus.ERROR, "数据预置超时");
+                            StepVariable.RESULT_Fail(StepStatus.ERROR, "数据预置超时", step);
                         }
                         break;
                     case 2:

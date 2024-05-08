@@ -36,4 +36,9 @@ public class CustomSignalController {
     public BaseJson<Boolean> removeCustomSignal(@RequestParam(required = false) String name, @RequestParam(required = false) String uuid) {
         return new BaseJson<Boolean>().Success(customSignalService.removeCustomSignal(name, uuid));
     }
-}
+
+    @ApiOperation(value = "自定义信号语法校验")
+    @PostMapping("checkCustomSignalSyntax")
+    public BaseJson<BracketValidationResponse> checkCustomSignalSyntax(@RequestBody CustomSignalParesRequest request) {
+        return new BaseJson<BracketValidationResponse>().Success(customSignalService.checkCustomSignalSyntax(request));
+    }}

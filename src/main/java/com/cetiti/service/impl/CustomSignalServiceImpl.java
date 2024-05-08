@@ -114,4 +114,22 @@ public class CustomSignalServiceImpl implements CustomSignalService {
         }
         return true;
     }
+
+    @Override
+    public BracketValidationResponse checkCustomSignalSyntax(CustomSignalParesRequest request) {
+        Map<String, Object> param = request.getParam();
+        StepVariable stepVariable = new StepVariable();
+        for (Map.Entry<String, Object> entry : param.entrySet()) {
+            String key = entry.getKey();
+            Object value = entry.getValue();
+            stepVariable.addNestedAttributeObject(key, value, "");
+        }
+        BracketValidationResponse response = new BracketValidationResponse();
+        grammarCheckUtils.hasMatchingBrackets(request.getExpression(), response);
+        if (!response.isValid()) {
+            return response;
+        }
+        grammarCheckUtils.processExpression(request.getExpression(), stepVariable, response, request.getType());
+        return response;
+    }
 }

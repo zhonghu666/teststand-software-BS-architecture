@@ -7,6 +7,7 @@ import com.cetiti.constant.*;
 import com.cetiti.entity.StepAdditional;
 import com.cetiti.entity.StepVariable;
 import com.cetiti.entity.TestSequence;
+import com.cetiti.entity.TestStepExpression;
 import com.cetiti.entity.step.ActionStep;
 import com.cetiti.entity.step.StepBase;
 import com.cetiti.entity.step.TestStep;
@@ -269,6 +270,8 @@ public class CreateWord {
                 if (StringUtils.isEmpty(status)) {
                     continue;
                 }
+                //错误信息
+                String errorMsg = stepVariable2.getValueByPath("Error.msg");
                 log.info("=============================================================================");
                 //是否循环
                 String loop = stepVariable2.getValueByPath("LoopType");
@@ -287,39 +290,44 @@ public class CreateWord {
                         addExtraResults(table, stepBase.getStepAdditionalList(), stepVariable, stepVariable2);
                     } else {
                         if (Objects.equals(type, "N_TEST")) {
-                            String subType = stepVariable2.getValueByPath("TestStepType");
-                            if (Objects.equals(subType, TestStepType.T_PASS_FAIL.name())) {
+                            TestStep testStep = (TestStep) stepBase;
+                            TestStepType subType = testStep.getSubType();
+                            if (Objects.equals(subType, TestStepType.T_PASS_FAIL)) {
                                 Boolean result = stepVariable2.getValueByPath("Result.PassFail");
                                 TableUtil.createRowAndFill(table, 1000, Arrays.asList(stepName, DateUtils.localDate2LongString(LocalDateTime.now())));
-                                TableUtil.fillTableData(table, StepStatus.getDescByCode(status), String.valueOf(result));
-                            } else if (Objects.equals(subType, TestStepType.T_NUMERIC_LIMIT.name())) {
+                                TableUtil.fillTableData(table, StepStatus.getDescByCode(status), result != null ? String.valueOf(result) : "");
+                            } else if (Objects.equals(subType, TestStepType.T_NUMERIC_LIMIT)) {
                                 Object numeric = stepVariable2.getValueByPath("Result.Numeric");
-                                String units = stepVariable2.getValueByPath("Result.Units");
-                                String low = stepVariable2.getValueByPath("Limits.LowExpr");
-                                String high = stepVariable2.getValueByPath("Limits.HighExpr");
-                                String met = stepVariable2.getValueByPath("Result.Met");
+                                TestStepExpression testStepExpression = testStep.getTestStepExpressions().get(0);
+                                String units = testStepExpression.getUnit();
+                                String low = testStepExpression.getLow();
+                                String high = testStepExpression.getHigh();
+                                String met = testStepExpression.getMet();
                                 TableUtil.createRowAndFill(table, 1000, Arrays.asList(stepName, DateUtils.localDate2LongString(LocalDateTime.now())));
                                 TableUtil.fillTableData(table, StepStatus.getDescByCode(status), numeric == null ? "" : String.valueOf(numeric), units, "", low, high, met);
-                            } else if (Objects.equals(subType, TestStepType.T_MULTIPLE_NUMERIC_LIMIT.name())) {
+                            } else if (Objects.equals(subType, TestStepType.T_MULTIPLE_NUMERIC_LIMIT)) {
                                 TableUtil.createRowAndFill(table, 1000, Arrays.asList(stepName, DateUtils.localDate2LongString(LocalDateTime.now())));
                                 TableUtil.fillTableData(table, StepStatus.getDescByCode(status));
                                 TableUtil.createRowAndMergeFill(table, 500, 0, 7, List.of("执行结果:"), 200);
                                 List<StepVariable> list = stepVariable2.getValueByPath("Measurement");
+                                List<TestStepExpression> testStepExpressions = testStep.getTestStepExpressions();
                                 for (int i = 0; i < list.size(); i++) {
                                     String strArr = "NumericArray[" + i + "]";
                                     TableUtil.createRowAndFill(table, 500, List.of(strArr), 400);
                                     Object numeric = list.get(i).getValueByPath("Result.Numeric");
-                                    String units = list.get(i).getValueByPath("Units");
-                                    String low = list.get(i).getValueByPath("Limits.LowExpr");
-                                    String high = list.get(i).getValueByPath("Limits.HighExpr");
-                                    String met = list.get(i).getValueByPath("Met");
+                                    TestStepExpression testStepExpression = testStepExpressions.get(i);
+                                    String units = testStepExpression.getUnit();
+                                    String low = testStepExpression.getLow();
+                                    String high = testStepExpression.getHigh();
+                                    String met = testStepExpression.getMet();
                                     TableUtil.fillTableData(table, "", numeric == null ? "" : String.valueOf(numeric), units, "", low, high, met);
                                 }
-                            } else if (Objects.equals(subType, TestStepType.T_STRING_VALUE.name())) {
+                            } else if (Objects.equals(subType, TestStepType.T_STRING_VALUE)) {
                                 TableUtil.createRowAndFill(table, 1000, Arrays.asList(stepName, DateUtils.localDate2LongString(LocalDateTime.now())));
-                                String low = stepVariable2.getValueByPath("Limits.StringExpr");
+                                TestStepExpression testStepExpression = testStep.getTestStepExpressions().get(0);
+                                String low = testStepExpression.getLow();
                                 String str = stepVariable2.getValueByPath("String");
-                                String met = stepVariable2.getValueByPath("Met");
+                                String met = testStepExpression.getMet();
                                 TableUtil.fillTableData(table, StepStatus.getDescByCode(status), str, "", "", low, met);
                             }
 
@@ -432,6 +440,9 @@ public class CreateWord {
                             } else if (Objects.equals(subType, FlowControlType.F_DO_WHILE.name()) && flowStatus) {
                                 TableUtil.createRowAndMergeFill(table, 1500, 0, 7, Arrays.asList("Do While", flowNo + condition, DateUtils.localDate2LongString(LocalDateTime.now())));
                             }
+                        }
+                        if (StringUtils.isNotBlank(errorMsg) && !ErrorCode.SUCCESS.getDesc().equals(errorMsg)) {
+                            TableUtil.createRowAndMergeFill(table, 1000, 1, 7, List.of("Error Message", errorMsg), 200);
                         }
                         addExtraResults(table, stepBase.getStepAdditionalList(), stepVariable, stepVariable2);
                     }

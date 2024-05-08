@@ -48,7 +48,7 @@ public class PopupStep extends StepBase implements Serializable {
     protected StepVariable performSpecificTask(CacheService cacheService, Map<String, Object> pram) {
         StepVariable stepVariable = cacheService.getStepVariable(getTestSequenceId());
         StepVariable step = StepVariable.RESULT_SUCCESS(StepStatus.DONE);
-        step.addNestedAttribute("MessageExpr", message, "内容");
+        step.addNestedAttribute("MessageExpr", message != null ? message : "", "内容");
         step.addNestedAttribute("TitleExpr", textTitle, "标题");
         buttons.forEach(i -> {
             step.addNestedAttribute("ButtonLabel" + i.getId(), i.getName(), "按键内容");
