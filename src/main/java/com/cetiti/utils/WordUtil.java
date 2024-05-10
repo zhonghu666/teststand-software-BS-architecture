@@ -90,6 +90,11 @@ public class WordUtil {
         }
     }
 
+    /**
+     * 设置报告基本模板内容
+     *
+     * @param document
+     */
     public static void setTitleAndSummaryTable(XWPFDocument document) {
         // 创建标题
         XWPFParagraph title = document.createParagraph();
@@ -140,7 +145,12 @@ public class WordUtil {
         }
     }
 
-
+    /**
+     * 填充文档中的第一个表格。
+     *
+     * @param document    Word 文档
+     * @param resultList  要填充的数据列表
+     */
     public static void fillFirstTable(XWPFDocument document, List<String> resultList) {
         XWPFTable table = document.getTableArray(0);
         //设置第一个表格第二列数据
@@ -158,12 +168,22 @@ public class WordUtil {
         }
     }
 
+    /**
+     * 在文档中添加换行符。
+     *
+     * @param document Word 文档
+     */
     public static void setBreak(XWPFDocument document) {
         XWPFParagraph paragraph = document.createParagraph();
         XWPFRun paragraphRun = paragraph.createRun();
         paragraphRun.setText("\r");
     }
 
+    /**
+     * 设置样式
+     * @param document 文档
+     * @param text 内容
+     */
     public static void setParagraphText(XWPFDocument document, String text) {
         XWPFParagraph paragraph = document.createParagraph();
         paragraph.setAlignment(ParagraphAlignment.LEFT);
@@ -174,6 +194,13 @@ public class WordUtil {
         paragraphRun.setFontFamily("微软雅黑");
     }
 
+
+    /**
+     * 设置表格的表头。
+     *
+     * @param document Word 文档
+     * @return 表格对象
+     */
     public static XWPFTable setTableHeader(XWPFDocument document) {
         // 创建一个两行八列的表格
         XWPFTable table = document.createTable(2, 8);

@@ -22,6 +22,8 @@ public class ExpressionServiceImpl implements ExpressionService {
     @Override
     public Map<String, List<FunctionMetadataResponse>> getFunctionMetadataList() {
         List<FunctionMetadata> functionMetadataList = mongoTemplate.findAll(FunctionMetadata.class);
+
+        // 对函数元数据进行分组，首先按类型分组，然后按函数类型进行二级分组
         Map<String, List<FunctionMetadataResponse>> response = functionMetadataList.stream()
                 .collect(Collectors.groupingBy(FunctionMetadata::getType))
                 .entrySet()
@@ -34,8 +36,11 @@ public class ExpressionServiceImpl implements ExpressionService {
                                 .entrySet()
                                 .stream()
                                 .map(functionTypeEntry -> {
+                                    // 构造函数元数据响应对象
                                     FunctionMetadataResponse functionMetadataResponse = new FunctionMetadataResponse();
                                     functionMetadataResponse.setType(functionTypeEntry.getKey());
+
+                                    // 构造函数元数据详情响应列表
                                     List<FunctionMetadataDetailsResponse> detailsResponses = functionTypeEntry.getValue()
                                             .stream()
                                             .map(functionMetadata -> {
@@ -51,4 +56,5 @@ public class ExpressionServiceImpl implements ExpressionService {
                 ));
         return response;
     }
+
 }

@@ -17,6 +17,7 @@ public class ContainsFunction extends AbstractVariadicFunction {
         return "Contains";
     }
 
+
     @Override
     public AviatorObject variadicCall(Map<String, Object> env, AviatorObject... args) {
         if (args.length < 2 || args.length > 3) {

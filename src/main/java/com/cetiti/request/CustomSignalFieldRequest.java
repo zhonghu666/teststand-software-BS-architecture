@@ -9,15 +9,15 @@ import java.io.Serializable;
 @Data
 public class CustomSignalFieldRequest implements Serializable {
 
-    @ApiModelProperty("原始路径")
+    @ApiModelProperty(value = "原始路径",required = true)
     private String originalPath;
 
-    @ApiModelProperty("新路径")
+    @ApiModelProperty(value = "新路径",required = true)
     private String newPath;
 
-    @ApiModelProperty("字段类型")
+    @ApiModelProperty(value = "字段类型",required = true)
     private ValueType type;
 
-    @ApiModelProperty("字段含义")
+    @ApiModelProperty(value = "字段含义",required = true)
     private String fieldMsg;
 }

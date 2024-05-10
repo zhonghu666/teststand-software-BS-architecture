@@ -9,9 +9,9 @@ import java.util.List;
 @Data
 public class batchExecuteRequest implements Serializable {
 
-    @ApiModelProperty("序列调用步骤id")
+    @ApiModelProperty(value = "序列调用步骤id",required = true)
     private String stepId;
 
-    @ApiModelProperty("子序列批量执行步骤Id")
+    @ApiModelProperty(value = "子序列批量执行步骤Id",required = true)
     private List<String> stepIdList;
 }

@@ -1,5 +1,52 @@
 package com.cetiti.constant;
 
 public enum FlowControlType {
-    F_IF, F_ELSE_IF, F_ELSE, F_FOR, F_WHILE, F_DO_WHILE, F_SELECT, F_CASE, F_END, F_BREAK, F_CONTINUE, F_GOTO
+    /**
+     * if步骤
+     */
+    F_IF,
+    /**
+     * else if
+     */
+    F_ELSE_IF,
+    /**
+     * else
+     */
+    F_ELSE,
+    /**
+     * for
+     */
+    F_FOR,
+    /**
+     * while
+     */
+    F_WHILE,
+    /**
+     * do while
+     */
+    F_DO_WHILE,
+    /**
+     * select
+     */
+    F_SELECT,
+    /**
+     * case
+     */
+    F_CASE,
+    /**
+     * end
+     */
+    F_END,
+    /**
+     * break
+     */
+    F_BREAK,
+    /**
+     * continue
+     */
+    F_CONTINUE,
+    /**
+     * goto
+     */
+    F_GOTO
 }

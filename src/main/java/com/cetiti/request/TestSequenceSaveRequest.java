@@ -14,12 +14,13 @@ import java.util.List;
 @Data
 public class TestSequenceSaveRequest implements Serializable {
 
+    @ApiModelProperty(value = "id", required = true)
     private String id;
 
-    @ApiModelProperty("序列名称")
+    @ApiModelProperty(value = "序列名称", required = true)
     private String sequenceName;
 
-    @ApiModelProperty("step")
+    @ApiModelProperty(value = "step", required = true)
     @NotEmpty(message = "步骤不可为空")
     @Valid
     private List<StepBase> stepList;
@@ -27,6 +28,6 @@ public class TestSequenceSaveRequest implements Serializable {
     @ApiModelProperty("数据调用")
     private StepBase dataCallStep;
 
-    @ApiModelProperty("变量")
+    @ApiModelProperty(value = "变量", required = true)
     private StepVariableDTO stepVariable;
 }

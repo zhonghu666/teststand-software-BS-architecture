@@ -100,10 +100,23 @@ public class StepVariable implements Serializable {
 
 
     public static class ValueWrapper<T> implements Serializable {
+        /**
+         * 数据类型
+         */
         private ValueType type;
+        /**
+         * 具体数据
+         */
         private T value;
+
+        /**
+         * 备注
+         */
         private String desc;
 
+        /**
+         * 数据调用内容
+         */
         private Info info;
 
         @JsonCreator

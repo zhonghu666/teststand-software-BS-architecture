@@ -14,6 +14,7 @@ public class TestSequence implements Serializable {
 
     private String id;
 
+    @ApiModelProperty("名称")
     private String sequenceName;
 
     @ApiModelProperty("step")
@@ -22,11 +23,13 @@ public class TestSequence implements Serializable {
     @ApiModelProperty("数据调用ids")
     private String dataCallId;
 
+    @ApiModelProperty("变量树")
     private StepVariable stepVariable;
 
     private LocalDateTime createTime;
 
     private LocalDateTime updateTime;
 
+    @ApiModelProperty("执行版本")
     private String exceptVersion;
 }

@@ -20,30 +20,40 @@ import java.util.stream.IntStream;
 public class ChartUtil {
 
 
+    /**
+     * 生成图表的字节数组列表。
+     *
+     * @param list         步骤附加信息列表，用于确定生成哪些图表
+     * @param stepVariable 步骤变量，包含图表数据
+     * @return 图表的字节数组列表
+     * @throws IllegalArgumentException 如果类型不支持或表达式的值不是数组，则抛出此异常
+     */
     @SuppressWarnings("unchecked")
-    public static List<byte[]> chart(List<StepAdditional> list, StepVariable stepVariable) {
+    public static List<byte[]> chart(List<StepAdditional> list, StepVariable stepVariable) throws IllegalArgumentException {
         List<byte[]> chartList = new ArrayList<>();
+
+        // 过滤出需要生成图表的步骤附加信息
         list = list.stream().filter(stepAdditional -> Objects.equals(Boolean.TRUE, stepAdditional.getIsGraphs())).collect(Collectors.toList());
         for (StepAdditional stepAdditional : list) {
             String sourceExpression = stepAdditional.getSourceExpression();
             String[] split = sourceExpression.split(",");
-            //Object valueByPath = stepVariable.getValueByPath(sourceExpression);
             Object valueByPath = stepVariable.getValueByPath(split[0]);
             log.info("sourceException key:{} value:{}", split[0], JSON.toJSONString(valueByPath));
             if (!(valueByPath instanceof List)) {
-                throw new IllegalArgumentException("类型错误, 表达式: " + sourceExpression + " 的值不是数组");
+                throw new IllegalArgumentException("类型错误，表达式 " + sourceExpression + " 的值不是数组");
             }
+            // 将值转换为列表
             List<?> t = (List<?>) valueByPath;
             Object o = t.get(0);
+            // 创建XY图表
             XYChart chart = new XYChartBuilder().width(1200).height(500).title("折线图").xAxisTitle("x轴").yAxisTitle("y轴").build();
-            //背景色
-            chart.getStyler().setChartBackgroundColor(Color.WHITE);
-            //样式大小
-            chart.getStyler().setMarkerSize(1);
-            //下方
-            chart.getStyler().setLegendPosition(Styler.LegendPosition.OutsideS);
+            // 设置图表样式
+            chart.getStyler().setChartBackgroundColor(Color.WHITE); // 背景色
+            chart.getStyler().setMarkerSize(1); // 样式大小
+            chart.getStyler().setLegendPosition(Styler.LegendPosition.OutsideS); // 下方
             chart.getStyler().setLegendVisible(true); // 显示图例
-            chart.getStyler().setDefaultSeriesRenderStyle(XYSeries.XYSeriesRenderStyle.Line);
+            chart.getStyler().setDefaultSeriesRenderStyle(XYSeries.XYSeriesRenderStyle.Line); // 默认渲染样式为折线
+            // 根据值的类型生成图表数据
             if (o instanceof Number) {
                 List<Number> yData = (List<Number>) t;
                 List<Integer> xData = IntStream.range(0, t.size()).boxed().collect(Collectors.toList());
@@ -78,12 +88,18 @@ public class ChartUtil {
                 }
                 chartList.add(getBytes(chart));
             } else {
-                throw new IllegalArgumentException("Unsupported type");
+                throw new IllegalArgumentException("不支持的类型");
             }
         }
         return chartList;
     }
 
+    /**
+     * 将XY图表转换为字节数组。
+     *
+     * @param chart XY图表对象
+     * @return 转换后的字节数组，如果转换失败，则返回null
+     */
     private static byte[] getBytes(XYChart chart) {
         byte[] chartBytes = null;
         try (ByteArrayOutputStream outputStream = new ByteArrayOutputStream()) {
@@ -95,6 +111,7 @@ public class ChartUtil {
         }
         return chartBytes;
     }
+
 
     /**
      * 抽离出的方法，用于处理StepVariable列表并生成所需的Map结构。

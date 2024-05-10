@@ -49,18 +49,37 @@ public class GrammarCheckUtils {
             "+=", "-=", "*=", "/=", "%=", "^=", "&=", "|=", "&&", "||",
             "=", "+", "-", "*", "/", "%", "^", "&", "|", "~", ">", "<", "!", "(", ")", ","
     };
+
+    /**
+     * 检查从指定位置开始的字符是否为运算符。
+     * 该方法用于确定表达式中从指定位置开始的字符是否为有效的运算符。
+     *
+     * @param expr  表达式字符串
+     * @param index 开始检查的位置索引
+     * @return 如果从指定位置开始存在有效的运算符，则返回 true；否则返回 false。
+     */
     public boolean isOperator(String expr, int index) {
         return lengthOfOperator(expr, index) > 0;
     }
 
+
+    /**
+     * 计算从指定位置开始的运算符的长度。
+     * 该方法用于查找在表达式中从指定位置开始的运算符，并返回其长度。
+     *
+     * @param expr  表达式字符串
+     * @param index 开始搜索的位置索引
+     * @return 若从指定位置开始存在运算符，则返回该运算符的长度；若不存在运算符，则返回0。
+     */
     public int lengthOfOperator(String expr, int index) {
         for (String op : operators) {
             if (index + op.length() <= expr.length() && expr.substring(index, index + op.length()).equals(op)) {
                 return op.length();
             }
         }
-        return 0;  // No operator found at this position
+        return 0;  // 在此位置未找到运算符
     }
+
     /**
      * 检查给字符串是否为参数。
      *
@@ -297,6 +316,7 @@ public class GrammarCheckUtils {
             }
             i++;
         }
+        //判断表达式最终结果是否和入参要求一致
         String expressionResultType;
         if (tokens.size() == 1) {
             expressionResultType = getParamType(tokens.get(0).getValue(), stepVariable);
@@ -318,7 +338,6 @@ public class GrammarCheckUtils {
             }
         }
     }
-
 
 
     /**
@@ -347,14 +366,16 @@ public class GrammarCheckUtils {
     }
 
     /**
-     * 校验函数内参数个数是否匹配，入参数据类型是否匹配
+     * 将函数替换为占位符。
+     * 该方法将给定范围内的函数替换为占位符，并处理函数参数，并将处理后的参数转换为逆波兰表达式。
      *
-     * @param tokens
-     * @param start
-     * @param end
-     * @param functionMetadataMap
-     * @param operatorMap
-     * @param response
+     * @param tokens              表达式的标记列表
+     * @param start               替换范围的起始索引（包含）
+     * @param end                 替换范围的结束索引（不包含）
+     * @param functionMetadataMap 函数元数据映射，用于验证函数参数数量和类型
+     * @param operatorMap         运算符映射，用于处理函数参数转换为逆波兰表达式时的运算符优先级
+     * @param response            用于记录替换过程中的错误信息和验证结果的响应对象
+     * @param stepVariable        步骤变量，用于函数执行过程中的参数传递和结果存储
      */
     private void replaceFunctionWithPlaceholder(List<Token> tokens, int start, int end,
                                                 Map<String, FunctionMetadata> functionMetadataMap,
@@ -409,7 +430,16 @@ public class GrammarCheckUtils {
         tokens.add(start, new Token(placeholder.toString(), start, start + placeholder.length()));
     }
 
-
+    /**
+     * 处理函数参数的类型验证。
+     * 该方法用于验证函数的参数类型是否符合预期，并记录验证结果到响应对象中。
+     *
+     * @param tokens       待处理的函数参数列表，每个参数是一个标记列表
+     * @param operatorMap  运算符映射，用于检查运算结果类型
+     * @param function     函数元数据，包含函数的模板和参数类型信息
+     * @param stepVariable 步骤变量，用于获取参数的类型信息
+     * @param response     用于记录验证结果的响应对象
+     */
     private void processTokens(List<List<Token>> tokens, Map<String, FunctionMetadata> operatorMap,
                                FunctionMetadata function,
                                StepVariable stepVariable, BracketValidationResponse response) {
@@ -420,13 +450,15 @@ public class GrammarCheckUtils {
         int j = 0;
         for (List<Token> paramToken : tokens) {
             String paramType = functionParamTypes.get(j);
-            String operatorResultType = null;
+            String operatorResultType;
+            // Determine the result type of the operator for single-token parameters
             if (paramToken.size() == 1) {
                 operatorResultType = getParamType(paramToken.get(0).getValue(), stepVariable);
             } else {
+                // Validate parameter type for multi-token parameters
                 operatorResultType = operatorParamVerify(operatorMap, stepVariable, response, paramToken);
             }
-            // 检查运算结果类型是否符合预期的参数类型
+            // Check if the operator result type matches the expected parameter type
             if (operatorResultType == null) {
                 response.addError("Function: " + function.getFunctionName() + ":" + (j + 1) + " parameter is null", paramToken.get(0).getStartPos(), paramToken.get(paramToken.size() - 1).getEndPos());
             } else {
@@ -463,18 +495,17 @@ public class GrammarCheckUtils {
                 String chileOperator = operatorParameterVerification(operand1, currentToken, operand2, operator, stepVariable, response);
 
                 // 处理结束后，使用占位符替换这三个Token
-                String placeholder = "F_" + chileOperator; // 占位符名称可以根据需要调整
-                Token placeholderToken = new Token(placeholder, operand1.getStartPos(), currentToken.getEndPos()); // 创建占位符Token
+                String placeholder = "F_" + chileOperator;
+                Token placeholderToken = new Token(placeholder, operand1.getStartPos(), currentToken.getEndPos());
 
                 // 将原先三个Token的位置替换为一个占位符Token
-                paramToken.set(i - 2, placeholderToken); // 替换第一个操作数为占位符
-                paramToken.remove(i); // 移除原运算符
-                paramToken.remove(i - 1); // 移除第二个操作数，注意列表长度已变化
-
+                paramToken.set(i - 2, placeholderToken);
+                paramToken.remove(i);
+                paramToken.remove(i - 1);
                 // 由于列表长度减少，i需要适当调整以指向下一个正确的位置
-                i = i - 2; // 合并后，i指向新的占位符位置，循环会使i自增，指向下一个待处理的Token
+                i = i - 2;
             } else {
-                i++; // 如果当前Token不是运算符或没有足够的操作数，则移到下一个Token
+                i++;
             }
         }
         FunctionMetadata functionMetadata = operatorMap.get(token.getValue());
@@ -597,17 +628,37 @@ public class GrammarCheckUtils {
         return null;
     }
 
+    /**
+     * 判断type是否在后面list内
+     *
+     * @param type
+     * @param validTypes
+     * @return
+     */
     private boolean isValidType(String type, String... validTypes) {
         return Arrays.asList(validTypes).contains(type);
     }
 
+    /**
+     * 处理表达式中的数组表达式。
+     * 该方法用于处理表达式中的数组表达式，并对其中包含的函数进行处理，然后将数组表达式替换为索引号。
+     *
+     * @param expression 待处理的表达式字符串
+     * @param stepVariable 步骤变量，用于表达式处理过程中的参数传递和结果存储
+     * @param response 用于记录处理过程中的错误信息和验证结果的响应对象
+     * @param functions 函数列表，用于检查数组表达式中是否包含函数调用
+     * @param resultType 表达式的结果类型
+     * @return 处理后的表达式字符串
+     */
     private String processingExpressionArry(String expression, StepVariable stepVariable, BracketValidationResponse response, List<FunctionMetadata> functions, String resultType) {
+        // 匹配数组表达式的正则表达式模式
         Pattern bracketPattern = Pattern.compile("\\[([^\\]]+)\\]");
         Matcher bracketMatcher = bracketPattern.matcher(expression);
         int index = 1;
         while (bracketMatcher.find()) {
             String bracketExpression = bracketMatcher.group(1);
             if (functions.stream().anyMatch(i -> bracketExpression.contains(i.getFunctionName()))) {
+                // 处理数组表达式中的函数调用
                 processExpression(bracketExpression, stepVariable, response, resultType);
                 expression = expression.replace("[" + bracketExpression + "]", "[" + index + "]");
                 index++;
@@ -616,19 +667,34 @@ public class GrammarCheckUtils {
         return expression;
     }
 
+
+    /**
+     * 将中缀表达式转换为后缀表达式。
+     * 该方法将给定的中缀表达式转换为后缀表达式，并返回后缀表达式的标记列表。
+     *
+     * @param tokens 中缀表达式的标记列表
+     * @param functionNames 包含函数名称的列表，用于识别函数调用
+     * @param operatorMap 运算符映射，用于确定运算符的优先级和结合性
+     * @return 后缀表达式的标记列表
+     */
     private List<Token> toPostfix(List<Token> tokens, List<String> functionNames, Map<String, FunctionMetadata> operatorMap) {
         List<Token> outputQueue = new ArrayList<>();
         Stack<Token> operatorStack = new Stack<>();
 
         for (Token token : tokens) {
             String value = token.getValue();
+            // 如果是函数名，则入栈
             if (functionNames.contains(value)) {
                 operatorStack.push(token);
-            } else if (operatorMap.containsKey(value)) {
+            }
+            // 如果是运算符
+            else if (operatorMap.containsKey(value)) {
                 FunctionMetadata functionMetadata = operatorMap.get(value);
+                // 处理运算符栈中的运算符
                 while (!operatorStack.isEmpty() && operatorMap.containsKey(operatorStack.peek().getValue())) {
                     String op = operatorStack.peek().getValue();
                     FunctionMetadata functionMetadata1 = operatorMap.get(op);
+                    // 根据运算符的优先级和结合性判断是否出栈
                     if ((functionMetadata.getOperatorAssociativity().equals("left") && functionMetadata.getOperatorPrecedence() <= functionMetadata1.getOperatorPrecedence()) ||
                             (functionMetadata.getOperatorAssociativity().equals("right") && functionMetadata.getOperatorPrecedence() < functionMetadata1.getOperatorPrecedence())) {
                         outputQueue.add(operatorStack.pop());
@@ -637,34 +703,44 @@ public class GrammarCheckUtils {
                     }
                 }
                 operatorStack.push(token);
-            } else if (value.equals("(")) {
+            }
+            else if (value.equals("(")) {
                 operatorStack.push(token);
-            } else if (value.equals(")")) {
+            }
+            else if (value.equals(")")) {
                 while (!operatorStack.isEmpty() && !operatorStack.peek().getValue().equals("(")) {
                     outputQueue.add(operatorStack.pop());
                 }
                 if (!operatorStack.isEmpty() && operatorStack.peek().getValue().equals("(")) {
-                    operatorStack.pop(); // Remove "("
+                    operatorStack.pop();
                 }
+                // 如果左括号后面是函数名，则将函数名加入到输出队列中
                 if (!operatorStack.isEmpty() && functionNames.contains(operatorStack.peek().getValue())) {
-                    outputQueue.add(operatorStack.pop()); // Add function to the output queue
+                    outputQueue.add(operatorStack.pop());
                 }
-            } else {
+            }
+            else {
                 outputQueue.add(token); // If it's a number or variable
             }
         }
-
+        // 处理剩余的运算符，并加入到输出队列中
         while (!operatorStack.isEmpty()) {
             Token leftOverToken = operatorStack.pop();
-            if (!leftOverToken.getValue().equals("(")) {  // Ensure no leftover '(' are added to the output
+            if (!leftOverToken.getValue().equals("(")) {
                 outputQueue.add(leftOverToken);
             }
         }
-
         return outputQueue;
     }
 
 
+    /**
+     * 从输入字符串中提取模式。
+     * 该方法从输入字符串中提取形如 ${...} 格式的模式，并返回模式列表。
+     *
+     * @param input 输入字符串，包含需要提取模式的内容
+     * @return 提取到的模式列表
+     */
     public List<String> extractPatterns(String input) {
         // 正则表达式，匹配${...}格式
         Pattern pattern = Pattern.compile("\\$\\{([^}]+)\\}");

@@ -24,6 +24,12 @@ public interface ReportService {
      */
     Report getReportById(String id);
 
+    /**
+     * 根据id获取报告链接
+     *
+     * @param id
+     * @return
+     */
     String getUrlById(String id);
 
     /**
@@ -34,6 +40,15 @@ public interface ReportService {
      */
     Boolean removeReportById(String id);
 
+    /**
+     * 统计查询报告
+     *
+     * @param id             id
+     * @param testSequenceId 序列id
+     * @param pageNum        第几页
+     * @param pageSize       每页条数
+     * @return
+     */
     Page<Report> getReportByQuery(String id, String testSequenceId, Integer pageNum, Integer pageSize);
 
     /**
@@ -44,6 +59,13 @@ public interface ReportService {
      */
     String generateReport(String id);
 
+    /**
+     * 下载报告
+     *
+     * @param id       报告id
+     * @param response 返回
+     * @return 是否成功
+     */
     Boolean downloadReport(String id, HttpServletResponse response);
 
 }

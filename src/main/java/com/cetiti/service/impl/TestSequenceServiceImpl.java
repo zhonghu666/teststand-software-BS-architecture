@@ -78,6 +78,7 @@ public class TestSequenceServiceImpl implements TestSequenceService {
     @Override
     public String saveTestSequence(TestSequenceSaveRequest request) {
         log.info("保存序列入参:{}", JSON.toJSON(request));
+        // 检查序列名称是否符合命名规范
         Assert.handle(request.getSequenceName().matches("^[a-zA-Z0-9]+(_[a-zA-Z0-9]+)*$"), "序列名称不符合命名规范");
         TestSequence testSequence = mongoTemplate.findById(request.getId(), TestSequence.class);
         StepVariable stepVariable = request.getStepVariable() != null ? convertToEntity(request.getStepVariable()) : new StepVariable();
@@ -101,6 +102,7 @@ public class TestSequenceServiceImpl implements TestSequenceService {
         List<String> stepIdList = new ArrayList<>();
         boolean isFirstMainFound = false;
         for (StepBase i : request.getStepList()) {
+            // 如果是主步骤且未找到第一个主步骤，并且请求中包含数据调用步骤，则保存数据调用步骤
             if ("Main".equals(i.getScope()) && !isFirstMainFound && request.getDataCallStep() != null) {
                 isFirstMainFound = true;
                 StepBase dataCallStep = request.getDataCallStep();
@@ -113,6 +115,7 @@ public class TestSequenceServiceImpl implements TestSequenceService {
                 i.setCreateTime(LocalDateTime.now());
             }
             i.setStepType(getStepType(i));
+            // 如果是动作步骤，根据不同类型的动作进行额外处理
             if (i.getStepType().equals("ACTION")) {
                 ActionStep actionStep = (ActionStep) i;
                 if (StringUtils.isNotBlank(actionStep.getEsn())) {
@@ -200,6 +203,7 @@ public class TestSequenceServiceImpl implements TestSequenceService {
                 DataCallStep dataCallStep = mongoTemplate.findById(i.getDataCallId(), DataCallStep.class);
                 testSequenceResponse.setDataCallStep(dataCallStep);
             }
+            // 检查测试序列是否正在执行，并设置执行状态
             Object o = redisUtil.checkIfKeyExistsWithScan(i.getId() + "execute");
             testSequenceResponse.setExecuteStatus(o != null);
             return testSequenceResponse;
@@ -236,6 +240,7 @@ public class TestSequenceServiceImpl implements TestSequenceService {
         StepBase step = mongoTemplate.findById(request.getId(), StepBase.class);
         Assert.handle(step != null, "步骤信息不存在");
         redisUtil.timing(step.getTestSequenceId());
+        // 如果步骤的作用域是"Main"，且尚未执行过该序列的主步骤，则执行数据调用步骤
         if (step.getScope().equals("Main")) {
             Object flag = redisUtil.get(step.getTestSequenceId() + "Main");
             if (flag == null) {
@@ -343,7 +348,7 @@ public class TestSequenceServiceImpl implements TestSequenceService {
     }
 
     @Override
-    public String doneSequence(String mainSequenceId, String childSequenceId, String exceptVersion, String stepId) {
+    public String doneSequence(String mainSequenceId, String childSequenceId, String exceptVersion, String stepIds) {
         String reportUrl = null;
         String username = JwtToken.getUsername(httpServletRequest.getHeader("token"));
         TestSequenceConfig testSequenceConfig = getTestSequenceConfig();
@@ -376,6 +381,29 @@ public class TestSequenceServiceImpl implements TestSequenceService {
                 testSequenceExecuteStatueDto.setId(split[0]);
                 testSequenceExecuteStatueDto.setExceptVersion(exceptVersion);
                 iMqttSender.sendToMqtt("guoqi/testSequence/execute/runStatus", JSON.toJSONString(testSequenceExecuteStatueDto));
+            }
+        }
+        if (StringUtils.isNotBlank(stepIds)) {
+            String[] splits = stepIds.split(",");
+            for (String stepId : splits) {
+                StepBase step = mongoTemplate.findById(stepId, StepBase.class);
+                List<StepBase> cleanupStepList = mongoTemplate.find(new Query(Criteria.where("testSequenceId").is(step.getTestSequenceId()).and("scope").is("Cleanup")), StepBase.class);
+                Map<String, Object> param = new HashMap<>();
+                param.put("siteId", redisUtil.get(step.getTestSequenceId() + "siteId"));
+                if (!step.getScope().equals("Cleanup")) {
+                    cleanupStepList.forEach(i -> {
+                        i.execute(cacheService, param);
+                    });
+                } else {
+                    boolean flag = false;
+                    for (StepBase i : cleanupStepList) {
+                        if (flag) {
+                            i.execute(cacheService, param);
+                        } else if (i.getId().equals(stepId)) {
+                            flag = true;
+                        }
+                    }
+                }
             }
         }
         return reportUrl;

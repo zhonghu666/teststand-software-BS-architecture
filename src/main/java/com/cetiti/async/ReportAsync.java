@@ -51,6 +51,8 @@ public class ReportAsync {
 
 
     /**
+     * 生成报告
+     *
      * @param id           序列id
      * @param uuid         报告uuid
      * @param sequenceName 序列名称

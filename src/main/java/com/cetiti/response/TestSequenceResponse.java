@@ -14,6 +14,7 @@ public class TestSequenceResponse implements Serializable {
 
     private String id;
 
+    @ApiModelProperty("序列名称")
     private String sequenceName;
 
     @ApiModelProperty("step")
@@ -22,6 +23,7 @@ public class TestSequenceResponse implements Serializable {
     @ApiModelProperty("数据调用")
     private DataCallStep dataCallStep;
 
+    @ApiModelProperty("变量树")
     private StepVariable stepVariable;
 
     @ApiModelProperty("场地id")

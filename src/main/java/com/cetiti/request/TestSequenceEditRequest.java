@@ -6,8 +6,9 @@ import lombok.Data;
 @Data
 public class TestSequenceEditRequest {
 
+    @ApiModelProperty(value = "id",required = true)
     private String id;
 
-    @ApiModelProperty("序列名称")
+    @ApiModelProperty(value = "序列名称",required = true)
     private String sequenceName;
 }

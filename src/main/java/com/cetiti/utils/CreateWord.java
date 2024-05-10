@@ -96,33 +96,15 @@ public class CreateWord {
     }
 
 
-    public static void loop(XWPFTable table, Boolean loopResult, StepVariable stepVariable, StepBase stepBase) {
-        String bashPath = "RunState.SequenceFile.Data.Seq." + stepBase.getTestSequenceName() + "." + stepBase.getScope() + "." + stepBase.getName() + "[" + stepBase.getId() + "]";
-
-        //循环的结果
-        Boolean b = stepVariable.getValueByPath(bashPath + ".LoopStatus");
-        String result = b ? "合格" : "失败";
-        Integer all = stepVariable.getValueByPath(bashPath + ".LoopNumIterations");
-        Integer passed = stepVariable.getValueByPath(bashPath + ".LoopNumPassed");
-        Integer failed = stepVariable.getValueByPath(bashPath + ".LoopNumFailed");
-        TableUtil.createRowAndFill(table, 1000, Arrays.asList(stepBase.getName() + "步骤循环", DateUtils.localDate2LongString(LocalDateTime.now())));
-        TableUtil.fillTableData(table, result);
-        TableUtil.createRowAndFill(table, 500, Arrays.asList("循环次数"), 200);
-        TableUtil.fillTableData(table, String.valueOf(all));
-        TableUtil.createRowAndFill(table, 500, Arrays.asList("成功次数"), 200);
-        TableUtil.fillTableData(table, String.valueOf(passed));
-        TableUtil.createRowAndFill(table, 500, Arrays.asList("失败次数"), 200);
-        TableUtil.fillTableData(table, String.valueOf(failed));
-        if (loopResult) {
-            TableUtil.createRowAndMergeFill(table, 500, 0, 7, Arrays.asList("每个迭代结果:"), 200);
-            TableUtil.createRowAndFill(table, 500, Arrays.asList("××步骤[1]"), 200);
-            TableUtil.fillTableData(table, "完成");
-            TableUtil.createRowAndFill(table, 500, Arrays.asList("××步骤[2]"), 200);
-            TableUtil.fillTableData(table, "完成");
-        }
-    }
-
-
+    /**
+     * 调试使用，业务不需要
+     *
+     * @param table
+     * @param type
+     * @param childrenType
+     * @param loopConfig
+     * @param loopResult
+     */
     public static void ifTable(XWPFTable table, String type, String childrenType, Boolean loopConfig, Boolean loopResult) {
         //test 步骤
         if (Objects.equals(type, "test")) {
@@ -209,6 +191,12 @@ public class CreateWord {
         }
     }
 
+    /**
+     * 调试使用
+     *
+     * @param table
+     * @param loopResult
+     */
     public static void loop(XWPFTable table, Boolean loopResult) {
         TableUtil.createRowAndFill(table, 1000, Arrays.asList("××步骤循环", "2023-9-20 16:24:30.126"));
         TableUtil.fillTableData(table, "合格");
@@ -227,13 +215,19 @@ public class CreateWord {
         }
     }
 
-
+    /**
+     * 生成测试报告的Word表格内容，并返回子序列的ID列表。
+     *
+     * @param table            Word表格对象
+     * @param stepVariable     步骤变量对象
+     * @param testSequenceName 测试序列名称
+     * @return 子序列的ID列表
+     */
     public static List<String> word(XWPFTable table, StepVariable stepVariable, String testSequenceName) {
         //子序列id
         List<String> idList = new ArrayList<>();
         String path = "RunState.SequenceFile.Report." + testSequenceName;
         StepVariable stepVariable1 = stepVariable.getValueByPath(path);
-
         Map<String, StepVariable.ValueWrapper<?>> attributes = stepVariable1.getAttributes();
         //scope
         Set<String> scopeStrings = attributes.keySet();
@@ -453,6 +447,12 @@ public class CreateWord {
     }
 
     @NotNull
+    /**
+     * 构建设备配置信息的字符串表示。
+     *
+     * @param actionStep 动作步骤对象
+     * @return 设备配置信息字符串
+     */
     private static StringBuilder getStringBuilder(ActionStep actionStep) {
         StringBuilder stringBuilder = new StringBuilder();
         stringBuilder.append("设备配置-RSU/");
@@ -471,6 +471,14 @@ public class CreateWord {
         return stringBuilder;
     }
 
+    /**
+     * 使用循环步骤变量填充表格。
+     *
+     * @param table        要填充的表格对象
+     * @param stepVariable 循环步骤变量
+     * @param stepName     步骤名称
+     * @param stepBase     步骤基础信息
+     */
     public static void forLoop(XWPFTable table, StepVariable stepVariable, String stepName, StepBase stepBase) {
         //步骤类型
         String type = stepVariable.getValueByPath("type");
@@ -613,6 +621,16 @@ public class CreateWord {
         }
     }
 
+    /**
+     * 添加循环结果和每个迭代结果到表格中。
+     *
+     * @param table             要填充的表格对象
+     * @param all               循环总次数
+     * @param passed            通过次数
+     * @param failed            失败次数
+     * @param stepVariableList  每个迭代的步骤变量列表
+     * @param stepName          步骤名称
+     */
     private static void addLoopResultAndEach(XWPFTable table, Double all, Integer passed, Integer failed, List<StepVariable> stepVariableList, String stepName) {
         addLoopResult(table, all, passed, failed);
         if (!CollectionUtils.isEmpty(stepVariableList)) {
@@ -625,7 +643,14 @@ public class CreateWord {
         }
     }
 
-
+    /**
+     * 向表格中添加循环结果信息。
+     *
+     * @param table   要填充的表格对象
+     * @param all     循环总次数
+     * @param passed  通过次数
+     * @param failed  失败次数
+     */
     private static void addLoopResult(XWPFTable table, Double all, Integer passed, Integer failed) {
         TableUtil.createRowAndFill(table, 500, Arrays.asList("循环次数"), 200);
         TableUtil.fillTableData(table, String.valueOf(all));
@@ -635,6 +660,14 @@ public class CreateWord {
         TableUtil.fillTableData(table, String.valueOf(failed));
     }
 
+    /**
+     * 向表格中添加额外结果信息。
+     *
+     * @param table             要填充的表格对象
+     * @param stepAdditionalList 附加步骤列表
+     * @param stepVariable      步骤变量
+     * @param step              步骤对象
+     */
     private static void addExtraResults(XWPFTable table, List<StepAdditional> stepAdditionalList, StepVariable stepVariable, StepVariable step) {
         if (CollectionUtils.isEmpty(stepAdditionalList)) {
             return;

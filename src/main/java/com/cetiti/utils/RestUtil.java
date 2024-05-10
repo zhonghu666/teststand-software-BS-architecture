@@ -25,6 +25,16 @@ public class RestUtil {
     @Resource
     private HttpServletRequest request;
 
+    /**
+     * 从 API 获取结果。
+     *
+     * @param path   API 路径
+     * @param body   请求体
+     * @param param  请求参数
+     * @param method HTTP 方法
+     * @param token  访问令牌
+     * @return API 调用结果
+     */
     public RestResult getResultFromApi(String path, Object body, String param, HttpMethod method, String token) {
         try {
             String queryString = request.getQueryString();

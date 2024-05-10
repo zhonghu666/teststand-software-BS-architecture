@@ -210,30 +210,28 @@ public class ExpressionParserUtils {
     }
 
     /**
-     * 表达式内变量提取并从变量树中取值
+     * 替换表达式中的模式为对应的值。
+     * 该方法将表达式中的模式替换为对应的值，并返回一个包含替换后键值对的映射。
      *
-     * @param expression
-     * @param stepVariable
-     * @param cacheService
-     * @param testSequenceId
-     * @return
+     * @param expression     待处理的表达式字符串，包含需要替换的模式
+     * @param stepVariable   步骤变量，用于获取模式对应的值
+     * @param cacheService   缓存服务，用于缓存数据
+     * @param testSequenceId 测试序列ID，用于特定场景下的数据获取
+     * @return 替换后的键值对映射
      */
     private static Map<String, Object> replacePatternsWithValues(String expression, StepVariable stepVariable, CacheService cacheService, String testSequenceId) {
         List<String> tokens = new ArrayList<>();
         int index = 0;
         GrammarCheckUtils grammarCheckUtils = new GrammarCheckUtils();
-
+        // 提取表达式中的各个片段
         while (index < expression.length()) {
-            // Skip spaces and operators
+            // 跳过空格和运算符
             while (index < expression.length() && (Character.isWhitespace(expression.charAt(index)) || grammarCheckUtils.isOperator(expression, index))) {
                 index += grammarCheckUtils.lengthOfOperator(expression, index) > 0 ? grammarCheckUtils.lengthOfOperator(expression, index) : 1;
             }
-
             if (index >= expression.length()) break;
-
             int start = index;
-
-            // Check for UUID pattern
+            // 检查UUID模式
             Matcher uuidMatcher = UUID_PATTERN.matcher(expression.substring(index));
             if (uuidMatcher.find() && uuidMatcher.start() == 0) {
                 String uuidToken = uuidMatcher.group();
@@ -241,21 +239,20 @@ public class ExpressionParserUtils {
                 index += uuidToken.length();
                 continue;
             }
-
-            // Capture token
             while (index < expression.length() && !grammarCheckUtils.isOperator(expression, index) && !Character.isWhitespace(expression.charAt(index))) {
                 index++;
             }
-
             if (start != index) {
                 tokens.add(expression.substring(start, index));
             }
         }
+
         // 处理提取出的每个变量路径
         Map<String, Object> env = new HashMap<>();
         for (String token : tokens) {
             if (GrammarCheckUtils.isValidPrefix(token)) {
                 String convertedToken = convertVariableName(token);
+                // 获取变量对应的值
                 Object value = getStepVariable(token, stepVariable, cacheService, testSequenceId);
                 Assert.dataHandle(value != null, "参数:" + token + "值为null，无效数据");
                 env.put(convertedToken, value);
@@ -266,25 +263,31 @@ public class ExpressionParserUtils {
 
 
     /**
-     * 表达式预处理-用于处理数组调用，解析数组索引内的结果
+     * 对表达式进行预处理。
+     * 该方法对表达式进行预处理，处理其中的方括号表达式，并根据内容进行相应的替换或计算。
      *
-     * @param expression
-     * @param stepVariable
-     * @param cacheService
-     * @param testSequenceId
-     * @return
+     * @param expression     待处理的表达式字符串，可能包含方括号表达式
+     * @param stepVariable   步骤变量，用于获取变量的值
+     * @param cacheService   缓存服务，用于缓存数据
+     * @param testSequenceId 测试序列ID，用于特定场景下的数据获取
+     * @return 预处理后的表达式字符串
      */
     private static String preprocessingExpression(String expression, StepVariable stepVariable, CacheService cacheService, String testSequenceId) {
         Pattern bracketPattern = Pattern.compile("\\[([^\\]]+)\\]");
         Matcher bracketMatcher = bracketPattern.matcher(expression);
+
+        // 获取函数名称列表
         //List<String> functionName = getFunctionName(cacheService);
         List<String> functionName = Arrays.asList("GetArrayBounds", "Contains", "GetNumElements", "CalculateRelativeDistance", "math.pow", "math.abs", "math.sqrt", "Split");
         while (bracketMatcher.find()) {
             String bracketExpression = bracketMatcher.group(1);
             Object result;
+            // 如果方括号内是数字，则直接使用该数字
             if (bracketExpression.matches("\\d+")) {
                 result = bracketExpression;
-            } else if (functionName.stream().anyMatch(bracketExpression::contains)) {
+            }
+            // 如果方括号内包含函数名，则进行表达式解析执行，并获取结果
+            else if (functionName.stream().anyMatch(bracketExpression::contains)) {
                 Map<String, Object> response = expressionParsingExecution(bracketExpression, stepVariable, cacheService, testSequenceId);
                 result = response.get("result");
             } else {
@@ -295,13 +298,16 @@ public class ExpressionParserUtils {
         return expression;
     }
 
+
     /**
-     * 表达式处理-把变量的.换成_用于后续的解析器使用
+     * 转换变量名称。
+     * 该方法将变量名称中的特殊字符替换为下划线，并将 UUID 中的连字符替换为下划线。
      *
-     * @param variableName
-     * @return
+     * @param variableName 待转换的变量名称字符串
+     * @return 转换后的变量名称字符串
      */
     private static String convertVariableName(String variableName) {
+        // 将点号替换为下划线，但不替换函数名中的点号
         String regexDots = "(?<!\\d)\\.(?!(abs|sin|cos|tan|log|log10|pow|round|asin|acos|atan|sqrt|split|\\w+)\\()(?!\\d)";
         variableName = variableName.replaceAll(regexDots, "_");
         String regexBrackets = "\\[|\\]";
@@ -310,15 +316,14 @@ public class ExpressionParserUtils {
         String uuidRegex = "\\b[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\\b";
         Pattern uuidPattern = Pattern.compile(uuidRegex);
         Matcher matcher = uuidPattern.matcher(variableName);
-        // 遍历匹配的 UUID，并将 '-' 替换为 '_'
         StringBuffer result = new StringBuffer();
         while (matcher.find()) {
-            String uuid = matcher.group(); // 获取匹配到的 UUID
-            String uuidWithUnderscore = uuid.replace("-", "_"); // 将 '-' 替换为 '_'
+            String uuid = matcher.group();
+            String uuidWithUnderscore = uuid.replace("-", "_");
             uuidWithUnderscore = "UUID" + uuidWithUnderscore;
-            matcher.appendReplacement(result, uuidWithUnderscore); // 替换并追加到结果中
+            matcher.appendReplacement(result, uuidWithUnderscore);
         }
-        matcher.appendTail(result); // 追加尾部的内容
+        matcher.appendTail(result);
         variableName = result.toString();
         variableName = variableName.replaceAll(":", "");
         return variableName;
@@ -395,16 +400,15 @@ public class ExpressionParserUtils {
     }
 
     /**
-     * 循环控制 自旋循环表达式解析及执行
+     * 解析并执行循环语句。
+     * 该方法根据循环配置对象执行一个循环，直到条件表达式不再满足。
      *
-     * @param circularConfig
-     * @param cacheService
-     * @param testSequenceId
-     * @param loopCondition
-     * @return
-     * @throws ScriptException
+     * @param circularConfig 循环配置对象，包含了循环的初始化、条件和增量表达式等信息
+     * @param cacheService   缓存服务，用于获取和保存测试步骤变量
+     * @param testSequenceId 测试序列ID，用于标识测试序列
+     * @param loopCondition  循环条件，定义了循环的终止条件
      */
-    public static void parseAndExecuteForLoop(CircularConfig circularConfig, CacheService cacheService, String testSequenceId, LoopCondition loopCondition) throws ScriptException {
+    public static void parseAndExecuteForLoop(CircularConfig circularConfig, CacheService cacheService, String testSequenceId, LoopCondition loopCondition) {
         // 解析并设置初始表达式
         String[] initialParts = circularConfig.getInitializationExpression().split("=");
         String loopIndexVar = convertVariableName(initialParts[0].trim());
@@ -447,13 +451,13 @@ public class ExpressionParserUtils {
     }
 
     /**
-     * 循环变量获取
+     * 从条件表达式中提取变量，并设置变量到脚本引擎中。
      *
-     * @param conditionExpression
-     * @param stepVariable
-     * @param cacheService
-     * @param testSequenceId
-     * @return
+     * @param conditionExpression 条件表达式，包含了需要提取的变量
+     * @param stepVariable        测试步骤变量，用于获取变量值
+     * @param cacheService        缓存服务，用于获取变量值
+     * @param testSequenceId      测试序列ID，用于标识测试序列
+     * @return 包含了设置的变量信息的映射，包括了条件表达式、变量键和变量名
      */
     private static Map<String, String> setVariablesFromCondition(String conditionExpression, StepVariable stepVariable, CacheService cacheService, String testSequenceId) {
         Pattern pattern = Pattern.compile("\\b([a-zA-Z_][a-zA-Z0-9_]*(\\.[a-zA-Z_][a-zA-Z0-9_]*)*)\\b");
@@ -461,6 +465,7 @@ public class ExpressionParserUtils {
         Map<String, String> param = new HashMap<>();
         while (matcher.find()) {
             String variableName = matcher.group(1);
+            // 排除特定变量名和已经存在于引擎中的变量
             if (!"LoopIndex".equals(variableName) && engine.get(variableName) == null) {
                 String[] parts = variableName.split("\\.");
                 String key = parts[parts.length - 1];
@@ -473,17 +478,20 @@ public class ExpressionParserUtils {
         return param;
     }
 
+
     /**
-     * 根据路径获取变量
+     * 根据路径获取测试步骤变量的值。
      *
-     * @param path
-     * @param stepVariable
-     * @param cacheService
-     * @param <T>
-     * @return
+     * @param path           测试步骤变量的路径，用于指定要获取的变量
+     * @param stepVariable   当前测试步骤的变量对象，用于获取变量值
+     * @param cacheService   缓存服务，用于获取其他序列的变量值
+     * @param testSequenceId 测试序列ID，用于标识当前测试序列
+     * @param <T>            变量的类型
+     * @return 指定路径下的测试步骤变量值，如果路径无效或变量不存在，则返回null
      */
     public static <T> T getStepVariable(String path, StepVariable stepVariable, CacheService cacheService, String testSequenceId) {
         if (path.contains(":")) {
+            // 处理路径中包含冒号的情况，用于获取其他序列的变量值
             String[] split = path.split(":");
             MongoTemplate mongoTemplate = ApplicationContextHolder.getBean(MongoConfig.MONGO_TEMPLATE, MongoTemplate.class);
             TestSequence otherTestSequence = mongoTemplate.findById(split[0], TestSequence.class);
@@ -491,6 +499,7 @@ public class ExpressionParserUtils {
             StepVariable other = otherTestSequence.getStepVariable();
             return other.getValueByPath(split[1]);
         } else if (path.startsWith("SequenceData")) {
+            // 处理路径以"SequenceData"开头的情况，用于获取当前序列的数据调用变量值
             StepVariable sequenceData = cacheService.getStepVariable("SequenceData-" + testSequenceId);
             Assert.handle(sequenceData != null, "数据调用没有数据，请检查");
             return sequenceData.getValueByPath(path);
@@ -499,6 +508,12 @@ public class ExpressionParserUtils {
         }
     }
 
+    /**
+     * 从缓存中获取函数名称列表，如果缓存中不存在，则从数据库中获取并保存到缓存中。
+     *
+     * @param cacheService 缓存服务，用于操作缓存数据
+     * @return 函数名称列表
+     */
     private static List<String> getFunctionName(CacheService cacheService) {
         List<String> functionName = cacheService.getFunctionName("Function");
         if (functionName == null || functionName.isEmpty()) {
@@ -514,11 +529,11 @@ public class ExpressionParserUtils {
     /**
      * 解析得到实际执行表达式-用于报告展示
      *
-     * @param expression
-     * @param stepVariable
-     * @param cacheService
-     * @param testSequenceId
-     * @return
+     * @param expression     待处理的条件表达式
+     * @param stepVariable   步骤变量，用于获取表达式中的变量值
+     * @param cacheService   缓存服务，用于操作缓存数据
+     * @param testSequenceId 测试序列ID，用于标识当前测试序列
+     * @return 表达式的值
      */
     public static String getCondition(String expression, StepVariable stepVariable, CacheService cacheService, String testSequenceId) {
         expression = expression.replaceAll("\\s+", "");

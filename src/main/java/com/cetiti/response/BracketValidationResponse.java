@@ -1,5 +1,6 @@
 package com.cetiti.response;
 
+import io.swagger.annotations.ApiModelProperty;
 import lombok.Data;
 
 import java.io.Serializable;
@@ -9,8 +10,11 @@ import java.util.List;
 
 @Data
 public class BracketValidationResponse implements Serializable {
+    @ApiModelProperty("是否通过")
     private boolean isValid;
+    @ApiModelProperty("错误集合")
     private List<ErrorMsg> errorMessages;
+    @ApiModelProperty("返回错误")
     private String returnErrorMsg;
 
     public BracketValidationResponse() {
