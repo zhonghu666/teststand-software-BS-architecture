@@ -382,12 +382,12 @@ public class CreateWord {
                         } else if (Objects.equals(type, "N_MESSAGE_POPUP")) {
                             TableUtil.createRowAndFill(table, 1000, Arrays.asList(stepName, DateUtils.localDate2LongString(LocalDateTime.now())));
                             TableUtil.fillTableData(table, StepStatus.getDescByCode(status));
-                            TableUtil.createRowAndMergeFill(table, 500, 0, 7, List.of("执行结果:"), 200);
-                            TableUtil.createRowAndMergeFill(table, 500, 1, 7, List.of("ButtonHit"), 400);
+                            TableUtil.createRowAndMergeFill(table, 500, 0, 7, List.of("执行结果:"), 100);
+                            TableUtil.createRowAndMergeFill(table, 500, 1, 7, List.of("ButtonHit"), 200);
                             String chooseButton = stepVariable2.getValueByPath("ChooseButton");
                             TableUtil.fillTableData(table, chooseButton == null ? "" : chooseButton);
 
-                            TableUtil.createRowAndMergeFill(table, 500, 1, 7, List.of("Response"), 400);
+                            TableUtil.createRowAndMergeFill(table, 500, 1, 7, List.of("Response"), 200);
                             StepVariable responseStep = stepVariable2.getValueByPath("replyText");
                             if (responseStep != null) {
                                 Map<String, StepVariable.ValueWrapper<?>> responseMap = responseStep.getAttributes();

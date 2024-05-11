@@ -118,8 +118,8 @@ public class TestSequenceController {
 
     @ApiOperation(value = "批量执行步骤")
     @PostMapping("batchExecute")
-    public BaseJson<Boolean> batchExecute(@RequestBody batchExecuteRequest request) {
-        return new BaseJson<Boolean>().Success(testSequenceService.batchExecute(request));
+    public BaseJson<Boolean> batchExecute(@RequestBody batchExecuteRequest request,@RequestHeader(name = "token") String token ) {
+        return new BaseJson<Boolean>().Success(testSequenceService.batchExecute(request,token));
     }
 
     @ApiOperation(value = "检查esn是否在序列内")

@@ -14,6 +14,9 @@ import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
+import java.util.stream.Collectors;
 
 @EqualsAndHashCode(callSuper = true)
 @Data
@@ -53,9 +56,13 @@ public class PopupStep extends StepBase implements Serializable {
         buttons.forEach(i -> {
             step.addNestedAttribute("ButtonLabel" + i.getId(), i.getName(), "按键内容");
         });
+        Map<String, String> collect = replyTexts.stream().collect(Collectors.toMap(ReplyText::getKey, ReplyText::getTitle));
         pram.forEach((key, value) -> {
-            if (!key.equals("chooseButton") && !key.equals("DATA_CALL_TOPIC")) {
-                step.addNestedAttributeObject("replyText." + key, value, key);
+            Pattern uuidPattern = Pattern.compile("[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}");
+            Matcher matcher = uuidPattern.matcher(key);
+            if (matcher.find()) {
+                String title = collect.get(key);
+                step.addNestedAttributeObject("replyText." + title, title + " : " + value, key);
             }
         });
         int flag = 1;

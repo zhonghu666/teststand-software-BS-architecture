@@ -344,6 +344,11 @@ public class mockController {
         return redisUtil.get(key);
     }
 
+    @GetMapping("mocktest")
+    public ActionStep mock(@RequestBody DataCallStep dataCallStep){
+        return new ActionStep();
+    }
+
     @Data
     public static class function {
 

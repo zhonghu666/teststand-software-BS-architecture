@@ -280,29 +280,30 @@ public class TestSequenceServiceImpl implements TestSequenceService {
     }
 
     @Override
-    public Boolean batchExecute(batchExecuteRequest request) {
+    public Boolean batchExecute(batchExecuteRequest request, String token) {
         List<StepBase> stepBases = mongoTemplate.find(new Query().addCriteria(Criteria.where("id").in(request.getStepIdList())), StepBase.class);
         String sequenceId = null;
+        Map<String, Object> param = new HashMap<>();
         for (StepBase s : stepBases) {
             if (s.getType().equals("N_MESSAGE_POPUP")) {
                 continue;
             }
+            if (s instanceof ActionStep) {
+                ActionStep a = (ActionStep) s;
+                if (a.getActionType().equals(SCENE)) {
+                    String sceneId = a.getSceneId();
+                    RestResult resultFromApi = restUtil.getResultFromApi(restPathConfig.getArtificial() + "/scene/getSceneInfoById", null, "id=" + sceneId, HttpMethod.POST, token);
+                    if (resultFromApi.getData() != null) {
+                        String jsonString = JSON.toJSONString(resultFromApi.getData());
+                        JSONObject jsonObject = JSON.parseObject(jsonString);
+                        param.put("siteId", jsonObject);
+                    }
+                }
+            }
             sequenceId = s.getTestSequenceId();
-            s.execute(cacheService, new HashMap<>());
+            s.execute(cacheService, param);
         }
-        StepVariable childStepVariable = cacheService.getStepVariable(sequenceId);
-        String runStatus = childStepVariable.getValueByPath("RunState.SequenceStatus");
-        StepBase stepBase = mongoTemplate.findById(request.getStepId(), StepBase.class);
-        StepVariable mainStep = cacheService.getStepVariable(stepBase.getTestSequenceId());
-        String stepPath = "RunState.SequenceFile.Data.Seq." + stepBase.getTestSequenceName() + "." + stepBase.getScope() + "." + stepBase.getName() + "[" + request.getStepId() + "]";
-        StepVariable step;
-        if (StepStatus.PASSED.getCode().equals(runStatus)) {
-            step = StepVariable.RESULT_SUCCESS(StepStatus.DONE);
-        } else {
-            step = StepVariable.RESULT_Fail(StepStatus.FAILED, "");
-        }
-        mainStep.addNestedAttribute(stepPath, step, stepBase.getName());
-        cacheService.saveOrUpdateStepVariable(stepBase.getTestSequenceId(), mainStep);
+        doneSequence(null, sequenceId, request.getExceptVersion(), null);
         return true;
     }
 

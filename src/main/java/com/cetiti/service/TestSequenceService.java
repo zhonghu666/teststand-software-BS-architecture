@@ -77,7 +77,7 @@ public interface TestSequenceService {
      * @param request
      * @return
      */
-    Boolean batchExecute(batchExecuteRequest request);
+    Boolean batchExecute(batchExecuteRequest request, String token);
 
     /**
      * 保存序列配置
