@@ -86,25 +86,31 @@ public class GrammarCheckUtils {
      * @param input 要检查的字符串。
      * @return 如果前缀有效，返回true；否则返回false。
      */
-    public static boolean isValidPrefix(String input) {
+    public static boolean isValidPrefix(String input, Boolean flag) {
         if (input == null || input.isEmpty()) {
             return false;
         }
-        if (input.contains(":")) {
-            String regex = ":[^\\.]+";
-            Pattern pattern = Pattern.compile(regex);
-            Matcher matcher = pattern.matcher(input);
-            if (matcher.find()) {
-                String afterColon = matcher.group(0).substring(1); // 去除匹配结果中的冒号，获取冒号后到第一个点号之间的内容
-                return VALID_PREFIXES.contains(afterColon);
+        if (flag) {
+            if (input.contains(":")) {
+                String regex = ":[^\\.]+";
+                Pattern pattern = Pattern.compile(regex);
+                Matcher matcher = pattern.matcher(input);
+                if (matcher.find()) {
+                    String afterColon = matcher.group(0).substring(1); // 去除匹配结果中的冒号，获取冒号后到第一个点号之间的内容
+                    return VALID_PREFIXES.contains(afterColon);
+                } else {
+                    return false;
+                }
             } else {
-                return false;
+                // 通过'.'分割字符串
+                String[] parts = input.split("\\.", 2);
+                // 检查是否存在至少一个分割部分，并且第一部分是否在有效前缀集合中
+                return parts.length >= 1 && VALID_PREFIXES.contains(parts[0]);
             }
         } else {
-            // 通过'.'分割字符串
-            String[] parts = input.split("\\.", 2);
-            // 检查是否存在至少一个分割部分，并且第一部分是否在有效前缀集合中
-            return parts.length >= 1 && VALID_PREFIXES.contains(parts[0]);
+            Pattern stringPattern = Pattern.compile("\"[^\"]*\"|'[^']*'"); // Pattern for string literals
+            boolean isString = stringPattern.matcher(input).matches();
+            return !isString;
         }
     }
 
@@ -243,11 +249,12 @@ public class GrammarCheckUtils {
      * @param stepVariable 变量树
      * @param response     异常栈
      * @param resultType   返回类型
+     * @param flag
      */
-    public void processExpression(String expression, StepVariable stepVariable, BracketValidationResponse response, String resultType) {
+    public void processExpression(String expression, StepVariable stepVariable, BracketValidationResponse response, String resultType, Boolean flag) {
         List<Token> tokens = new ArrayList<>();
         List<FunctionMetadata> functions = getFunction();
-        expression = processingExpressionArry(expression, stepVariable, response, functions, "NUMBER");
+        expression = processingExpressionArry(expression, stepVariable, response, functions, "NUMBER", flag);
         List<String> functionNames = functions.stream().filter(i -> i.getType().equals("Functions")).map(FunctionMetadata::getFunctionName).collect(Collectors.toList());
         Map<String, FunctionMetadata> functionMap = functions.stream().filter(i -> i.getType().equals("Functions")).collect(Collectors.toMap(FunctionMetadata::getFunctionName, a -> a));
         Map<String, FunctionMetadata> operatorMap = functions.stream().filter(i -> i.getType().equals("Operators")).collect(Collectors.toMap(FunctionMetadata::getFunctionName, a -> a));
@@ -285,7 +292,7 @@ public class GrammarCheckUtils {
             }
         }
         System.out.println(JSON.toJSON(tokens));
-        legalVerify(tokens, response, functions);
+        legalVerify(tokens, response, functions, flag);
         Stack<Integer> stack = new Stack<>();
         int i = 0;
         while (i < tokens.size()) {
@@ -309,7 +316,7 @@ public class GrammarCheckUtils {
                     int funcIndex = stack.pop();
                     // Check if the function call is the most inner one
                     if (tempStack.isEmpty()) { // No other functions inside
-                        replaceFunctionWithPlaceholder(tokens, funcIndex, i, functionMap, operatorMap, response, stepVariable);
+                        replaceFunctionWithPlaceholder(tokens, funcIndex, i, functionMap, operatorMap, response, stepVariable,flag);
                         i = funcIndex; // Reset i to the position of the new placeholder
                     }
                 }
@@ -319,10 +326,10 @@ public class GrammarCheckUtils {
         //判断表达式最终结果是否和入参要求一致
         String expressionResultType;
         if (tokens.size() == 1) {
-            expressionResultType = getParamType(tokens.get(0).getValue(), stepVariable);
+            expressionResultType = getParamType(tokens.get(0).getValue(), stepVariable, flag);
         } else {
             List<Token> postfix = toPostfix(tokens, functionNames, operatorMap);
-            expressionResultType = operatorParamVerify(operatorMap, stepVariable, response, postfix);
+            expressionResultType = operatorParamVerify(operatorMap, stepVariable, response, postfix, flag);
         }
         if (ValueType.NONE.name().equals(resultType) && !(expressionResultType == null || ValueType.NONE.name().equals(expressionResultType))) {
             response.setReturnErrorMsg("The window does not need to return, but return expressionResultType :" + expressionResultType);
@@ -347,14 +354,14 @@ public class GrammarCheckUtils {
      * @param response
      * @param functions
      */
-    private static void legalVerify(List<Token> tokens, BracketValidationResponse response, List<FunctionMetadata> functions) {
+    private static void legalVerify(List<Token> tokens, BracketValidationResponse response, List<FunctionMetadata> functions, Boolean flag) {
         Pattern numberPattern = Pattern.compile("-?\\d+(\\.\\d+)?"); // Pattern for numbers (integer and floating point)
         Pattern stringPattern = Pattern.compile("\"[^\"]*\"|'[^']*'"); // Pattern for string literals
         for (Token token : tokens) {
             String value = token.getValue();
             boolean isBoolean = value.equals("true") || value.equals("false");
             boolean isString = stringPattern.matcher(value).matches();
-            if (!isValidPrefix(value)
+            if (!isValidPrefix(value, flag)
                     && functions.stream().noneMatch(i -> i.getFunctionName().equals(value)) &&
                     !numberPattern.matcher(value).matches()
                     && !VALID_BRACKETS.contains(value)
@@ -380,7 +387,8 @@ public class GrammarCheckUtils {
     private void replaceFunctionWithPlaceholder(List<Token> tokens, int start, int end,
                                                 Map<String, FunctionMetadata> functionMetadataMap,
                                                 Map<String, FunctionMetadata> operatorMap,
-                                                BracketValidationResponse response, StepVariable stepVariable) {
+                                                BracketValidationResponse response, StepVariable stepVariable,
+                                                boolean flag) {
         StringBuffer placeholder = new StringBuffer();
         placeholder.append("F_");
         List<List<Token>> newTokensList = new ArrayList<>(); // 最外层列表
@@ -423,7 +431,7 @@ public class GrammarCheckUtils {
             } else if (paramCount > functionMetadata.getParamCountHig()) {
                 response.addError("Number of parameters is higher than maximum " + functionName.getValue(), functionName.getStartPos(), functionName.getEndPos());
             }
-            processTokens(newTokensList, operatorMap, functionMetadata, stepVariable, response);
+            processTokens(newTokensList, operatorMap, functionMetadata, stepVariable, response, flag);
         } else {
             response.addError("Function not defined: " + functionName.getValue(), functionName.getStartPos(), functionName.getEndPos());
         }
@@ -442,7 +450,8 @@ public class GrammarCheckUtils {
      */
     private void processTokens(List<List<Token>> tokens, Map<String, FunctionMetadata> operatorMap,
                                FunctionMetadata function,
-                               StepVariable stepVariable, BracketValidationResponse response) {
+                               StepVariable stepVariable,
+                               BracketValidationResponse response, boolean flag) {
         if (function.getParamCountLow() == 0) {
             return;
         }
@@ -453,10 +462,10 @@ public class GrammarCheckUtils {
             String operatorResultType;
             // Determine the result type of the operator for single-token parameters
             if (paramToken.size() == 1) {
-                operatorResultType = getParamType(paramToken.get(0).getValue(), stepVariable);
+                operatorResultType = getParamType(paramToken.get(0).getValue(), stepVariable, flag);
             } else {
                 // Validate parameter type for multi-token parameters
-                operatorResultType = operatorParamVerify(operatorMap, stepVariable, response, paramToken);
+                operatorResultType = operatorParamVerify(operatorMap, stepVariable, response, paramToken, flag);
             }
             // Check if the operator result type matches the expected parameter type
             if (operatorResultType == null) {
@@ -479,7 +488,7 @@ public class GrammarCheckUtils {
      * @param paramToken   后缀表达式参数列表
      * @return 最终结果数据类型
      */
-    private String operatorParamVerify(Map<String, FunctionMetadata> operatorMap, StepVariable stepVariable, BracketValidationResponse response, List<Token> paramToken) {
+    private String operatorParamVerify(Map<String, FunctionMetadata> operatorMap, StepVariable stepVariable, BracketValidationResponse response, List<Token> paramToken, boolean flag) {
         int i = 0;
         String operatorResultType = null;
         Token token = paramToken.get(paramToken.size() - 1);
@@ -492,7 +501,7 @@ public class GrammarCheckUtils {
                 FunctionMetadata operator = operatorMap.get(currentToken.getValue());
 
                 // 进行类型校验或其他逻辑处理
-                String chileOperator = operatorParameterVerification(operand1, currentToken, operand2, operator, stepVariable, response);
+                String chileOperator = operatorParameterVerification(operand1, currentToken, operand2, operator, stepVariable, response, flag);
 
                 // 处理结束后，使用占位符替换这三个Token
                 String placeholder = "F_" + chileOperator;
@@ -530,9 +539,9 @@ public class GrammarCheckUtils {
      * @param response      异常栈
      * @return 运算结果数据类型
      */
-    private String operatorParameterVerification(Token param1, Token operatorParam, Token param2, FunctionMetadata operator, StepVariable stepVariable, BracketValidationResponse response) {
-        String param1Type = getParamType(param1.getValue(), stepVariable);
-        String param2Type = getParamType(param2.getValue(), stepVariable);
+    private String operatorParameterVerification(Token param1, Token operatorParam, Token param2, FunctionMetadata operator, StepVariable stepVariable, BracketValidationResponse response, boolean flag) {
+        String param1Type = getParamType(param1.getValue(), stepVariable, flag);
+        String param2Type = getParamType(param2.getValue(), stepVariable, flag);
         if (param2Type == null || param1Type == null) {
             return null;
         }
@@ -556,7 +565,7 @@ public class GrammarCheckUtils {
             }
             return ValueType.NUMBER.name();
         } else if (operator.getFunctionType().equals("Assignment")) {
-            if (!isValidPrefix(param1.getValue())) {
+            if (!isValidPrefix(param1.getValue(), flag)) {
                 response.addError("Operators Assignment must assign values to variables " + param1.getValue(), param1.getStartPos(), param1.getEndPos());
             } else if (operatorParam.getValue().equals("=")) {
                 if (!ValueType.LIST.name().equals(param1Type) && !param1Type.equals(param2Type)) {
@@ -593,8 +602,8 @@ public class GrammarCheckUtils {
      * @param stepVariable 变量树
      * @return
      */
-    private String getParamType(String param, StepVariable stepVariable) {
-        if (isValidPrefix(param)) {
+    private String getParamType(String param, StepVariable stepVariable, boolean flag) {
+        if (isValidPrefix(param, flag)) {
             if (param.equals("SequenceData")) {
                 return ValueType.LIST.name();
             }
@@ -643,14 +652,15 @@ public class GrammarCheckUtils {
      * 处理表达式中的数组表达式。
      * 该方法用于处理表达式中的数组表达式，并对其中包含的函数进行处理，然后将数组表达式替换为索引号。
      *
-     * @param expression 待处理的表达式字符串
+     * @param expression   待处理的表达式字符串
      * @param stepVariable 步骤变量，用于表达式处理过程中的参数传递和结果存储
-     * @param response 用于记录处理过程中的错误信息和验证结果的响应对象
-     * @param functions 函数列表，用于检查数组表达式中是否包含函数调用
-     * @param resultType 表达式的结果类型
+     * @param response     用于记录处理过程中的错误信息和验证结果的响应对象
+     * @param functions    函数列表，用于检查数组表达式中是否包含函数调用
+     * @param resultType   表达式的结果类型
+     * @param flag
      * @return 处理后的表达式字符串
      */
-    private String processingExpressionArry(String expression, StepVariable stepVariable, BracketValidationResponse response, List<FunctionMetadata> functions, String resultType) {
+    private String processingExpressionArry(String expression, StepVariable stepVariable, BracketValidationResponse response, List<FunctionMetadata> functions, String resultType, Boolean flag) {
         // 匹配数组表达式的正则表达式模式
         Pattern bracketPattern = Pattern.compile("\\[([^\\]]+)\\]");
         Matcher bracketMatcher = bracketPattern.matcher(expression);
@@ -659,7 +669,7 @@ public class GrammarCheckUtils {
             String bracketExpression = bracketMatcher.group(1);
             if (functions.stream().anyMatch(i -> bracketExpression.contains(i.getFunctionName()))) {
                 // 处理数组表达式中的函数调用
-                processExpression(bracketExpression, stepVariable, response, resultType);
+                processExpression(bracketExpression, stepVariable, response, resultType, flag);
                 expression = expression.replace("[" + bracketExpression + "]", "[" + index + "]");
                 index++;
             }
@@ -672,9 +682,9 @@ public class GrammarCheckUtils {
      * 将中缀表达式转换为后缀表达式。
      * 该方法将给定的中缀表达式转换为后缀表达式，并返回后缀表达式的标记列表。
      *
-     * @param tokens 中缀表达式的标记列表
+     * @param tokens        中缀表达式的标记列表
      * @param functionNames 包含函数名称的列表，用于识别函数调用
-     * @param operatorMap 运算符映射，用于确定运算符的优先级和结合性
+     * @param operatorMap   运算符映射，用于确定运算符的优先级和结合性
      * @return 后缀表达式的标记列表
      */
     private List<Token> toPostfix(List<Token> tokens, List<String> functionNames, Map<String, FunctionMetadata> operatorMap) {
@@ -703,11 +713,9 @@ public class GrammarCheckUtils {
                     }
                 }
                 operatorStack.push(token);
-            }
-            else if (value.equals("(")) {
+            } else if (value.equals("(")) {
                 operatorStack.push(token);
-            }
-            else if (value.equals(")")) {
+            } else if (value.equals(")")) {
                 while (!operatorStack.isEmpty() && !operatorStack.peek().getValue().equals("(")) {
                     outputQueue.add(operatorStack.pop());
                 }
@@ -718,8 +726,7 @@ public class GrammarCheckUtils {
                 if (!operatorStack.isEmpty() && functionNames.contains(operatorStack.peek().getValue())) {
                     outputQueue.add(operatorStack.pop());
                 }
-            }
-            else {
+            } else {
                 outputQueue.add(token); // If it's a number or variable
             }
         }

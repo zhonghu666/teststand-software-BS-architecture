@@ -4,13 +4,13 @@ import com.alibaba.fastjson.JSON;
 import com.cetiti.config.IMqttSender;
 import com.cetiti.config.TokenManagerConfig;
 import com.cetiti.constant.Assert;
+import com.cetiti.constant.ValueType;
 import com.cetiti.entity.StepVariable;
 import com.cetiti.entity.step.DataCallInfo;
 import com.cetiti.entity.step.DataCallStencil;
 import com.cetiti.expression.GrammarCheckUtils;
 import com.cetiti.request.CustomSignalParesRequest;
 import com.cetiti.request.CustomSignalRequest;
-import com.cetiti.request.checkExpressionRequest;
 import com.cetiti.response.BracketValidationResponse;
 import com.cetiti.service.CustomSignalService;
 import com.cetiti.service.TestSequenceService;
@@ -85,11 +85,23 @@ public class CustomSignalServiceImpl implements CustomSignalService {
 
     @Override
     public BracketValidationResponse parseCustomSignal(CustomSignalParesRequest request) {
-        Map<String, Object> param = request.getParam();
+        log.info("解析自定义信号表达式入参:{}", JSON.toJSON(request));
         StepVariable stepVariable = new StepVariable();
-        for (Map.Entry<String, Object> entry : param.entrySet()) {
+        for (Map.Entry<String, String> entry : request.getParam().entrySet()) {
             String key = entry.getKey();
-            Object value = entry.getValue();
+            String valueType = entry.getValue();
+            Object value = null;
+            if (ValueType.NUMBER.name().equals(valueType)) {
+                value = 0;
+            } else if (ValueType.STRING.name().equals(valueType)) {
+                value = "a";
+            } else if (ValueType.TREE_NODE.name().equals(valueType)) {
+                value = new StepVariable();
+            } else if (ValueType.LIST.name().equals(valueType)) {
+                value = new ArrayList<>();
+            } else if (ValueType.BOOLEAN.name().equals(valueType)) {
+                value = true;
+            }
             stepVariable.addNestedAttributeObject(key, value, "");
         }
         BracketValidationResponse response = new BracketValidationResponse();
@@ -97,7 +109,7 @@ public class CustomSignalServiceImpl implements CustomSignalService {
         if (!response.isValid()) {
             return response;
         }
-        grammarCheckUtils.processExpression(request.getExpression(), stepVariable, response, request.getType());
+        grammarCheckUtils.processExpression(request.getExpression(), stepVariable, response, request.getType(), false);
         if (!response.isValid()) {
             redisUtil.hset(request.getUuid() + "parseCustomSignal", request.getName(), request, 3600);
         }
@@ -117,11 +129,22 @@ public class CustomSignalServiceImpl implements CustomSignalService {
 
     @Override
     public BracketValidationResponse checkCustomSignalSyntax(CustomSignalParesRequest request) {
-        Map<String, Object> param = request.getParam();
         StepVariable stepVariable = new StepVariable();
-        for (Map.Entry<String, Object> entry : param.entrySet()) {
+        for (Map.Entry<String, String> entry : request.getParam().entrySet()) {
             String key = entry.getKey();
-            Object value = entry.getValue();
+            String valueType = entry.getValue();
+            Object value = null;
+            if (ValueType.NUMBER.name().equals(valueType)) {
+                value = 0;
+            } else if (ValueType.STRING.name().equals(valueType)) {
+                value = "a";
+            } else if (ValueType.TREE_NODE.name().equals(valueType)) {
+                value = new StepVariable();
+            } else if (ValueType.LIST.name().equals(valueType)) {
+                value = new ArrayList<>();
+            } else if (ValueType.BOOLEAN.name().equals(valueType)) {
+                value = true;
+            }
             stepVariable.addNestedAttributeObject(key, value, "");
         }
         BracketValidationResponse response = new BracketValidationResponse();
@@ -129,7 +152,7 @@ public class CustomSignalServiceImpl implements CustomSignalService {
         if (!response.isValid()) {
             return response;
         }
-        grammarCheckUtils.processExpression(request.getExpression(), stepVariable, response, request.getType());
+        grammarCheckUtils.processExpression(request.getExpression(), stepVariable, response, request.getType(), false);
         return response;
     }
 }

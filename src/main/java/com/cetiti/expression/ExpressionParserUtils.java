@@ -250,7 +250,7 @@ public class ExpressionParserUtils {
         // 处理提取出的每个变量路径
         Map<String, Object> env = new HashMap<>();
         for (String token : tokens) {
-            if (GrammarCheckUtils.isValidPrefix(token)) {
+            if (GrammarCheckUtils.isValidPrefix(token, false)) {
                 String convertedToken = convertVariableName(token);
                 // 获取变量对应的值
                 Object value = getStepVariable(token, stepVariable, cacheService, testSequenceId);

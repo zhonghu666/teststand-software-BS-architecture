@@ -22,6 +22,6 @@ public class CustomSignalParesRequest implements Serializable {
     private String type;
 
     @ApiModelProperty(value = "变量",required = true)
-    private Map<String, Object> param;
+    private Map<String, String> param;
 
 }

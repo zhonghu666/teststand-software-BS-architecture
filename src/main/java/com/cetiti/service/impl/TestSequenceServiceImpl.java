@@ -468,7 +468,7 @@ public class TestSequenceServiceImpl implements TestSequenceService {
         if (!response.isValid()) {
             return response;
         }
-        grammarCheckUtils.processExpression(expression, stepVariable, response, request.getResultType());
+        grammarCheckUtils.processExpression(expression, stepVariable, response, request.getResultType(), true);
         return response;
     }
 

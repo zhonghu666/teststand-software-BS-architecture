@@ -5,12 +5,9 @@ import com.cetiti.config.RestPathConfig;
 import com.cetiti.config.TokenManagerConfig;
 import com.cetiti.entity.*;
 import com.cetiti.entity.step.*;
-import com.cetiti.expression.ExpressionParserUtils;
 import com.cetiti.expression.GrammarCheckUtils;
 import com.cetiti.request.StepVariableDTO;
-import com.cetiti.request.ValueWrapperDTO;
 import com.cetiti.response.BracketValidationResponse;
-import com.cetiti.service.CustomSignalService;
 import com.cetiti.service.MqttProcessingService;
 import com.cetiti.service.impl.CacheService;
 import com.cetiti.service.impl.TestSequenceServiceImpl;
@@ -24,7 +21,6 @@ import org.springframework.beans.BeanUtils;
 import org.springframework.data.mongodb.core.MongoTemplate;
 import org.springframework.data.mongodb.core.query.Criteria;
 import org.springframework.data.mongodb.core.query.Query;
-import org.springframework.http.HttpMethod;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 import utils.ExcelUtils;
@@ -34,12 +30,7 @@ import javax.annotation.Resource;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.util.*;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 import java.util.stream.Collectors;
-
-import static com.cetiti.constant.ValueType.STRING;
-import static com.cetiti.constant.ValueType.TREE_NODE;
 
 @Api("模拟数据")
 @RestController
@@ -330,7 +321,7 @@ public class mockController {
         BracketValidationResponse bracketValidationResponse = new BracketValidationResponse();
         StepVariable stepVariable = cacheService.getStepVariable(id);
         s = s.replace(" ", "").replaceAll("\\s+", "");
-        grammarCheckUtils.processExpression(s, stepVariable, bracketValidationResponse, resultType);
+        grammarCheckUtils.processExpression(s, stepVariable, bracketValidationResponse, resultType,false );
         System.out.println(JSON.toJSON(bracketValidationResponse));
     }
 
@@ -344,8 +335,8 @@ public class mockController {
         return redisUtil.get(key);
     }
 
-    @GetMapping("mocktest")
-    public ActionStep mock(@RequestBody DataCallStep dataCallStep){
+    @GetMapping("mocktest1")
+    public ActionStep mock(@RequestBody ActionStep dataCallStep){
         return new ActionStep();
     }
 
